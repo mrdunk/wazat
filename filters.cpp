@@ -1,13 +1,67 @@
 #include "filters.h"
 
+typedef std::vector<double> Array;
+typedef std::vector<Array> Matrix;
 
-double gaussian( double x, double mu, double sigma ) {
-  const double a = ( x - mu ) / sigma;
-  return std::exp( -0.5 * a * a );
+Matrix getGaussian(int height, int width, double sigma)
+{
+    Matrix kernel(height, Array(width));
+    double sum = 0.0;
+    int i, j;
+
+    for (i=0; i < height; i++) {
+        for (j=0; j < width; j++) {
+            kernel[i][j] = exp(-(i*i + j*j) / (2*sigma*sigma)) / (2*M_PI * sigma*sigma);
+            sum += kernel[i][j];
+        }
+    }
+
+    for (i=0; i < height; i++) {
+        for (j=0; j < width; j++) {
+            kernel[i][j] /= sum;
+        }
+    }
+
+    return kernel;
 }
 
 void gaussianKernel(std::vector<double>& kernel, int size) {
+  const int radius = (size + 1) / 2;
   kernel.resize(size * size);
+  Matrix k = getGaussian(radius, radius, (double)1);
+
+
+  std::cout << std::endl;
+  for (int i = 0; i < radius; ++i) {
+    for (int j = 0; j < radius; ++j) { 
+      kernel[(-i + radius -1) * size + -j + radius -1] = k[i][j];
+      kernel[(-i + radius -1) * size + j + radius -1] = k[i][j];
+      kernel[(i + radius -1) * size + -j + radius -1] = k[i][j];
+      kernel[(i + radius -1) * size + j + radius -1] = k[i][j];
+      std::cout << std::setw(15) << k[i][j];
+    }
+    std::cout << std::endl;
+  }
+
+  std::cout << std::endl;
+  double sum = 0.0;
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) { 
+      sum += kernel[i * size + j];
+      std::cout << std::setw(15)<< kernel[i * size + j];
+    }
+    std::cout << std::endl;
+  }
+
+  std::cout << std::endl;
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) { 
+      kernel[i * size + j] /= sum;
+      std::cout << std::setw(15)<< kernel[i * size + j];
+    }
+    std::cout << std::endl;
+  }
+
   /* assert(size == 3);
   const float k[3][3] = {
     {1.0/16, 1.0/8, 1.0/16},
@@ -19,33 +73,6 @@ void gaussianKernel(std::vector<double>& kernel, int size) {
       kernel[kx * ky] = k[kx][ky];
     }
   }*/
-
-  // https://www.geeksforgeeks.org/gaussian-filter-generation-c/
-  const int radius = (size - 1) / 2;
-  // intialising standard deviation to 1.0 
-  double sigma = 1.0; 
-  double r, s = 2.0 * sigma * sigma; 
-
-  // sum is for normalization 
-  double sum = 0.0; 
-
-  // generating 
-  for (int x = -radius; x <= radius; x++) { 
-    for (int y = -radius; y <= radius; y++) { 
-      r = sqrt(x * x + y * y); 
-      kernel[(x + radius) * (y + radius)] = (exp(-(r * r) / s)) / (M_PI * s); 
-      sum += kernel[(x + radius) * (y + radius)]; 
-    } 
-  } 
-
-  // normalising the Kernel 
-  for (int i = 0; i < size; ++i) {
-    for (int j = 0; j < size; ++j) { 
-      kernel[i * j] /= sum;
-      std::cout << kernel[i * j] << "\t";
-    }
-    std::cout << std::endl;
-  }
 }
 
 void blur(std::vector<unsigned char>& inputBuffer,
@@ -53,7 +80,7 @@ void blur(std::vector<unsigned char>& inputBuffer,
           const int height) {
   unsigned char tempBuffer[width * height * 3] = {};
 
-  const int kernelSize = 5; // Must be odd.
+  const int kernelSize = 3; // Must be odd.
   assert(kernelSize % 2);
   const int kernelRadius = (kernelSize - 1) / 2;
 

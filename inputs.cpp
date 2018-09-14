@@ -212,31 +212,24 @@ void Camera::setBuffers(){
 void Camera::setControl(int id, int value){
   struct v4l2_queryctrl queryctrl;
   queryctrl.id = id;
-  if (-1 == ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl))
-  {
+  if (-1 == ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl)) {
     if (errno != EINVAL)
       exit(EXIT_FAILURE);
-    else
-    {
-      std::cerr << "ERROR :: Unable to set property (NOT SUPPORTED)\n";
-      exit(EXIT_FAILURE);
+    else {
+      std::cerr << "WARNING :: Unable to set property (NOT SUPPORTED)\n";
     }
-  }
-  else if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
-  {
+  } else if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) {
     std::cout << "ERROR :: Unable to set property (DISABLED).\n";
     exit(EXIT_FAILURE);
-  }
-  else
-  {
+  } else {
     struct v4l2_control control;
     control.id = queryctrl.id;
     control.value = value;
 
-    if (-1 == ioctl(fd, VIDIOC_S_CTRL, &control))
+    if (-1 == ioctl(fd, VIDIOC_S_CTRL, &control)) {
       exit(EXIT_FAILURE);
+    }
     std::cout << "Successfully set property." << std::endl;
-
   }
 }
 
