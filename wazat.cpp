@@ -6,7 +6,7 @@
  *
  * sudo apt install libjpeg-dev libsdl1.2-dev libsdl-image1.2-dev
  *
- * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lcurses
+ * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lcurses
  * */
 
 
