@@ -1,4 +1,5 @@
 #include "outputs.h"
+#include "config.h"
 
 DisplaySdl::DisplaySdl(void* inputBuffer_, unsigned int* inputBufferLength_) {
   firstFrameRead = 0;
@@ -15,7 +16,7 @@ void DisplaySdl::setBuffer(void* inputBuffer_, unsigned int* inputBufferLength_)
 }
 
 
-int DisplaySdl::update(){
+int DisplaySdl::update(int& keyPress){
   struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr jerr;
   cinfo.err = jpeg_std_error(&jerr);
@@ -41,9 +42,17 @@ int DisplaySdl::update(){
   SDL_Flip(screen);
 
   while(SDL_PollEvent(&events)){
-    if(events.type == SDL_QUIT) {
-      std::cout << "SDL_QUIT" << std::endl;
-      return 0;
+    switch(events.type) {
+      case SDL_QUIT:
+        std::cout << "SDL_QUIT" << std::endl;
+        return 0;
+      case SDL_KEYDOWN:
+        if(events.key.keysym.unicode) {
+          keyPress = events.key.keysym.unicode;
+        } else {
+          keyPress = events.key.keysym.sym;
+        }
+        break;
     }
   }
   return 1;
@@ -58,6 +67,7 @@ void DisplaySdl::displayInit(int width, int height){
   screen = SDL_SetVideoMode( width, height, 32, SDL_HWSURFACE);
 
   position = {.x = 0, .y = 0};
+  SDL_EnableUNICODE( 1 );
 }
 
 void DisplaySdl::displayCleanup(){
@@ -73,6 +83,7 @@ void DisplaySdl::displayCleanup(){
 DisplayAsci::DisplayAsci(std::vector<unsigned char>& inputBuffer_,
                          unsigned int width_, unsigned int height_) {
   setBuffer(inputBuffer_, width_, height_);
+  displayMenu = 0;
   cursesInit();
 }
 
@@ -88,10 +99,81 @@ DisplayAsci::~DisplayAsci() {
   cursesCleanup();
 }
 
-int DisplayAsci::update(){
+void DisplayAsci::enableMenu(int state) {
+  if(state && !displayMenu) {
+    clear();
+    displayMenu = 1;
+    int n_choices, i;
+
+    n_choices = sizeof(configArray) / sizeof(configArray[0]);
+    menuItems = (ITEM **)calloc(n_choices + 1, sizeof(ITEM *));
+
+    for(i = 0; i < n_choices; ++i) {
+      menuItems[i] = new_item(configArray[i]->label, configArray[i]->label);
+    }
+    menuItems[n_choices] = (ITEM *)NULL;
+
+    menu = new_menu((ITEM **)menuItems);
+
+    /* Make the menu multi valued */
+    menu_opts_off(menu, O_ONEVALUE);
+
+    // Set values.
+    post_menu(menu);
+    refresh();
+    for(i = 0; i < n_choices; ++i) {
+      set_item_value(menuItems[i], configArray[i]->value);
+    }
+  } else if(displayMenu) {
+    displayMenu = 0;
+    free_item(menuItems[0]);
+    free_item(menuItems[1]);
+    free_menu(menu);
+    clear();
+  }
+}
+
+void DisplayAsci::updateMenu(int keyPress){
+  if(keyPress == 'm' || keyPress == 'M') {
+    enableMenu(!displayMenu);
+  }
+  if(!displayMenu) {
+    return;
+  }
+
+  int dirty = 0;
+
+  switch(keyPress) {
+    case KEY_DOWN:
+    case SDLK_DOWN:
+      menu_driver(menu, REQ_DOWN_ITEM);
+      break;
+    case KEY_UP:
+    case SDLK_UP:
+      menu_driver(menu, REQ_UP_ITEM);
+      break;
+    case ' ':
+      menu_driver(menu, REQ_TOGGLE_ITEM);
+      dirty = 1;
+      break;
+  }
+
+  post_menu(menu);
+  refresh();
+
+  if(dirty) {
+    int n_choices = sizeof(configArray) / sizeof(configArray[0]);
+    for(int i = 0; i < n_choices; ++i) {
+      configArray[i]->value = item_value(menuItems[i]);
+    }
+  }
+}
+
+void DisplayAsci::update(int keyPress){
+  updateMenu(keyPress);
   unsigned int row_stride = inputBuffer->size() / height;
 
-  clear();
+  move(displayMenu * 10, 0);
   printw("%i, %i %i\n", width, height, inputBuffer->size());
   for(unsigned int line = 0; line < height; line += 15){
     for(unsigned int col = 0; col < row_stride; col += 30){
@@ -200,20 +282,24 @@ int DisplayAsci::update(){
     addstr("\n");
   }
   refresh();
-
-  return 1;
 }
 
 void DisplayAsci::cursesInit(){
   initscr();
-  (void)echo();
+  cbreak();
+  timeout(50);  // 50ms wait for keypress.
+  noecho();
+  keypad(stdscr, TRUE);
   start_color();
+
   init_pair(1, COLOR_RED, COLOR_BLACK);
   init_pair(2, COLOR_GREEN, COLOR_BLACK);
   init_pair(3, COLOR_BLUE, COLOR_BLACK);
   init_pair(4, COLOR_YELLOW, COLOR_BLACK);
   init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
   init_pair(6, COLOR_CYAN, COLOR_BLACK);
+  
+  clear();
 }
 
 void DisplayAsci::cursesCleanup(){

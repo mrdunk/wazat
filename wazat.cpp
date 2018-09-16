@@ -1,6 +1,7 @@
 #include "inputs.h"
 #include "outputs.h"
 #include "filters.h"
+#include "config.h"
 
 /* http://jwhsmith.net/2014/12/capturing-a-webcam-stream-using-v4l2/ 
  *
@@ -12,6 +13,7 @@
 
 int main()
 {
+  int keyPress;
   int run = 1;
 	const char* deviceName = "/dev/video0";
   void* cameraBuffer = NULL;
@@ -32,8 +34,7 @@ int main()
 
   //DisplaySdl displayRaw(cameraBuffer, &cameraBufferLength);
   DisplaySdl displayProcessed(outputJpegBuffer, &outputJpegBufferEstimatedLength);
-  //DisplayAsci displayParsed(parsedBuffer, inputDevice.width, inputDevice.height);
-
+  DisplayAsci displayParsed(parsedBuffer, inputDevice.width, inputDevice.height);
 
   while(run){
     if(!inputDevice.grabFrame()){
@@ -42,20 +43,30 @@ int main()
     //saveJpeg(cameraBuffer, cameraBufferLength);
     //run &= displayRaw.update();
     parseJpeg(cameraBuffer, cameraBufferLength, parsedBuffer, width, height);
-    
-    blur(parsedBuffer, width, height);
+    displayParsed.update(keyPress);
 
+    if(config.blurGaussian.value){    
+      blur(parsedBuffer, width, height);
+    }
     getFeatures(parsedBuffer, featureBuffer, width, height);
-    filterThin(featureBuffer, width, height);
-    filterSmallFeatures(featureBuffer, width, height);
+    if(config.filterThin.value){
+      filterThin(featureBuffer, width, height);
+    }
+    if(config.filterSmallFeatures.value){
+      filterSmallFeatures(featureBuffer, width, height);
+    }
     merge(parsedBuffer, featureBuffer, width, height);
 
-    //displayParsed.update();
     makeJpeg(parsedBuffer, 
              &outputJpegBuffer,
              outputJpegBufferEstimatedLength,
              width, height);
-    run &= displayProcessed.update();
+
+    keyPress = getch();
+    run &= displayProcessed.update(keyPress);
+    if(keyPress == 'q' || keyPress == 'Q') {
+      run = 0;
+    }
   }
 
   delete[] (unsigned char*)outputJpegBuffer;

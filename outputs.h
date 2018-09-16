@@ -6,6 +6,7 @@
 #include <SDL/SDL_image.h>
 #include <jpeglib.h>
 #include <curses.h>
+#include <menu.h>
 
 void errno_exit(const char *s);
 
@@ -26,7 +27,7 @@ class DisplaySdl {
 
   void setBuffer(void* inputBuffer_, unsigned int* inputBufferLength_);
 
-  int update();
+  int update(int& keyPress);
 
  private:
   void displayInit(int width, int height);
@@ -38,6 +39,9 @@ class DisplayAsci {
   std::vector<unsigned char>* inputBuffer;
   unsigned int width;
   unsigned int height;
+  int displayMenu;
+  ITEM **menuItems;
+  MENU *menu;
 
  public:
   DisplayAsci(std::vector<unsigned char>& inputBuffer_,
@@ -49,7 +53,9 @@ class DisplayAsci {
 
   ~DisplayAsci();
 
-  int update();
+  void update(int keyPress);
+  void enableMenu(int state);
+  void updateMenu(int keyPress);
 
  private:
   void cursesInit();
