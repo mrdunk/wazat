@@ -3,26 +3,29 @@
 typedef std::vector<double> Array;
 typedef std::vector<Array> Matrix;
 
-Matrix getGaussian(int height, int width, double sigma)
-{
-    Matrix kernel(height, Array(width));
-    double sum = 0.0;
-    int i, j;
+Matrix getGaussian(int height, int width, double sigma) {
+  std::cout << "getGaussian" << std::endl;
+  Matrix kernel(height, Array(width));
+  double sum = 0.0;
+  int i, j;
 
-    for (i=0; i < height; i++) {
-        for (j=0; j < width; j++) {
-            kernel[i][j] = exp(-(i*i + j*j) / (2*sigma*sigma)) / (2*M_PI * sigma*sigma);
-            sum += kernel[i][j];
-        }
+  for (i=0; i < height; i++) {
+    for (j=0; j < width; j++) {
+      kernel[i][j] = exp(-(i*i + j*j) / (2*sigma*sigma)) / (2*M_PI * sigma*sigma);
+      sum += kernel[i][j];
     }
+  }
 
-    for (i=0; i < height; i++) {
-        for (j=0; j < width; j++) {
-            kernel[i][j] /= sum;
-        }
+  std::cout << std::endl;
+  for (i=0; i < height; i++) {
+    for (j=0; j < width; j++) {
+      kernel[i][j] /= sum;
+      std::cout << std::setw(15)<< kernel[i][j];
     }
+    std::cout << std::endl;
+  }
 
-    return kernel;
+  return kernel;
 }
 
 void gaussianKernel(std::vector<double>& kernel, int size) {
@@ -73,6 +76,72 @@ void gaussianKernel(std::vector<double>& kernel, int size) {
       kernel[kx * ky] = k[kx][ky];
     }
   }*/
+}
+
+void blur2(std::vector<unsigned char>& inputBuffer,
+          const int width,
+          const int height) {
+  unsigned char tempBuffer[width * height * 3] = {};
+
+  /*const int kernelSize = 3; // Must be odd.
+  assert(kernelSize % 2);
+  const int kernelRadius = (kernelSize - 1) / 2;
+
+  static std::vector<double> kernel;
+  if(! kernel.size()) {
+    gaussianKernel(kernel, kernelSize);
+  }*/
+
+  int radius = 2;
+  static Matrix k = getGaussian(radius, radius, (double)1);
+
+  /*for(int y = kernelRadius; y < height - kernelRadius; y++) {
+    for(int x = kernelRadius *3; x < (width - kernelRadius) * 3; x += 3) {
+      for(int c = 0; c < 3; c++) {
+        assert(y * width * 3 + x + c >= 0);
+        assert(y * width * 3 + x + c < width * height * 3);
+ 
+        for(int ky = 0; ky < kernelSize; ky++){
+          for(int kx = 0; kx < kernelSize; kx++){
+            const int address =
+              (y + ky - kernelRadius) * width * 3 + x + (kx - kernelRadius) *3 + c;
+            assert(address >= 0);
+            assert(address < width * height * 3);
+            tempBuffer[y * width * 3 + x + c] +=
+              kernel[kx * ky] * inputBuffer[address];
+          }
+        }
+
+      }
+    }
+  } */
+  for(int y = radius; y < height - radius; y++) {
+    for(int x = radius *3; x < (width - radius) * 3; x += 3) {
+      for(int c = 0; c < 3; c++) {
+        assert(y * width * 3 + x + c >= 0);
+        assert(y * width * 3 + x + c < width * height * 3);
+ 
+        for(int ky = 0; ky < radius; ky++) {
+          for(int kx = 0; kx < radius; kx++) {
+            const int address =
+              (y + ky) * width * 3 + x + kx *3 + c;
+            assert(address >= 0);
+            assert(address < width * height * 3);
+
+            //tempBuffer[y * width * 3 + x + c] = inputBuffer[address];
+
+            tempBuffer[y * width * 3 + x + c] +=
+              k[kx][ky] * inputBuffer[address];
+          }
+        }
+        assert(tempBuffer[y * width * 3 + x + c] >= 0);
+        assert(tempBuffer[y * width * 3 + x + c] <= 0xFF);
+      }
+    }
+  }
+  for(int i = 0; i < width * height * 3; i++) {
+    inputBuffer[i] = tempBuffer[i];
+  }
 }
 
 void blur(std::vector<unsigned char>& inputBuffer,
