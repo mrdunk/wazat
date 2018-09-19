@@ -1,3 +1,6 @@
+#ifndef WAZAT_OUTPUT_H
+#define WAZAT_OUTPUT_H
+
 #include <iostream>
 #include <vector>
 #include <fcntl.h>    /* For O_RDWR */
@@ -7,6 +10,8 @@
 #include <jpeglib.h>
 #include <curses.h>
 #include <menu.h>
+
+#include "config.h"
 
 void errno_exit(const char *s);
 
@@ -41,7 +46,13 @@ class DisplayAsci {
   unsigned int height;
   int displayMenu;
   ITEM **menuItems;
+  ITEM **menuItemsSub[MENU_ITEMS];
   MENU *menu;
+  MENU *menuSub[MENU_ITEMS];
+  WINDOW *window;
+  WINDOW *windowSub;
+  int currentSubMenu;
+  int whichMenu;  // Currently selected menu: 0 = main menu. 1 = a sub menu.
 
  public:
   DisplayAsci(std::vector<unsigned char>& inputBuffer_,
@@ -59,11 +70,14 @@ class DisplayAsci {
 
  private:
   void cursesInit();
-
   void cursesCleanup();
+  void enableSubMenu();
+  void menuOperation(int operation);
+  void prosessSubMenu(int keyPress);
 };
 
 void makeJpeg(std::vector<unsigned char>& inputBuffer,
               void** outputBuffer, unsigned int& outputBufferLength,
               unsigned int width, unsigned int height);
 
+#endif  // WAZAT_OUTPUT_H

@@ -84,6 +84,8 @@ DisplayAsci::DisplayAsci(std::vector<unsigned char>& inputBuffer_,
                          unsigned int width_, unsigned int height_) {
   setBuffer(inputBuffer_, width_, height_);
   displayMenu = 0;
+  currentSubMenu = 0;
+  whichMenu = 0;
   cursesInit();
 }
 
@@ -100,37 +102,131 @@ DisplayAsci::~DisplayAsci() {
 }
 
 void DisplayAsci::enableMenu(int state) {
+  int n_choices = sizeof(configArray) / sizeof(configArray[0]);
   if(state && !displayMenu) {
     clear();
+    init_pair(7, COLOR_WHITE, COLOR_BLACK);
+    init_pair(8, COLOR_GREEN, COLOR_BLACK);
+    init_pair(9, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(10, COLOR_RED, COLOR_BLACK);
+
     displayMenu = 1;
-    int n_choices, i;
 
-    n_choices = sizeof(configArray) / sizeof(configArray[0]);
     menuItems = (ITEM **)calloc(n_choices + 1, sizeof(ITEM *));
-
-    for(i = 0; i < n_choices; ++i) {
-      menuItems[i] = new_item(configArray[i]->label, configArray[i]->label);
+    for(int i = 0; i < n_choices; ++i) {
+      menuItems[i] = new_item(configArray[i]->label, " ");
     }
     menuItems[n_choices] = (ITEM *)NULL;
-
     menu = new_menu((ITEM **)menuItems);
+    set_menu_mark(menu, " * ");
+
+    /* Set fore ground and back ground of the menu */
+    set_menu_fore(menu, COLOR_PAIR(7) | A_REVERSE);
+    set_menu_back(menu, COLOR_PAIR(8));
+    set_menu_grey(menu, COLOR_PAIR(9));
+    set_menu_pad(menu, COLOR_PAIR(10));
+
+    for(int i = 0; i < n_choices; ++i) {
+      menuItemsSub[i] = (ITEM **)calloc(configArray[i]->values.size() + 1, sizeof(ITEM *));
+      for(unsigned int j = 0; j < configArray[i]->values.size(); ++j) {
+        sprintf(configArray[i]->values[j].valueString, "%f", configArray[i]->values[j].value);
+        menuItemsSub[i][j] =
+          new_item(configArray[i]->values[j].label, configArray[i]->values[j].valueString);
+      }
+      menuItemsSub[i][configArray[i]->values.size()] = (ITEM *)NULL;
+      menuSub[i] = new_menu((ITEM **)(menuItemsSub[i]));
+      set_menu_mark(menuSub[i], " # ");
+    
+      /* Set fore ground and back ground of the menu */
+      set_menu_fore(menuSub[i], COLOR_PAIR(7) | A_REVERSE);
+      set_menu_back(menuSub[i], COLOR_PAIR(8));
+      set_menu_grey(menuSub[i], COLOR_PAIR(9));
+      set_menu_pad(menuSub[i], COLOR_PAIR(10));
+    }
+
+
+    window = newwin(10, 32, 2, 2);
+    keypad(window, TRUE);
+    set_menu_win(menu, window);
+    set_menu_sub(menu, derwin(window, 6, 30, 3, 1));
+    box(window, 0, 0);
+    mvwaddch(window, 2, 0, ACS_LTEE);
+    mvwhline(window, 2, 1, ACS_HLINE, 30);
+    mvwaddch(window, 2, 31, ACS_RTEE);
+
+    windowSub = newwin(10, 32, 2, 34);
+    keypad(windowSub, TRUE);
+    set_menu_win(menuSub[0], windowSub);
+    set_menu_sub(menuSub[0], derwin(windowSub, 6, 30, 3, 1));
+    box(windowSub, 0, 0);
+    mvwaddch(windowSub, 2, 0, ACS_LTEE);
+    mvwhline(windowSub, 2, 1, ACS_HLINE, 30);
+    mvwaddch(windowSub, 2, 31, ACS_RTEE);
 
     /* Make the menu multi valued */
     menu_opts_off(menu, O_ONEVALUE);
 
     // Set values.
     post_menu(menu);
+    post_menu(menuSub[0]);
     refresh();
-    for(i = 0; i < n_choices; ++i) {
-      set_item_value(menuItems[i], configArray[i]->value);
+    wrefresh(window);
+    wrefresh(windowSub);
+    for(int i = 0; i < n_choices; ++i) {
+      set_item_value(menuItems[i], configArray[i]->enabled);
     }
   } else if(displayMenu) {
     displayMenu = 0;
-    free_item(menuItems[0]);
-    free_item(menuItems[1]);
     free_menu(menu);
+    for(int i = 0; i < n_choices; ++i){
+      free_item(menuItems[i]);
+      free_menu(menuSub[i]);
+      for(unsigned int j = 0; j < configArray[i]->values.size(); ++j){
+        free_item(menuItemsSub[i][j]);
+      }
+    }
+    endwin();
     clear();
   }
+}
+
+void DisplayAsci::enableSubMenu() {
+  int index = item_index(current_item(menu));
+  unpost_menu(menuSub[currentSubMenu]);
+  set_menu_win(menuSub[index], windowSub);
+  set_menu_sub(menuSub[index], derwin(windowSub, 6, 30, 3, 1));
+  post_menu(menuSub[index]);
+
+  currentSubMenu = index;
+}
+
+void DisplayAsci::menuOperation(int operation) {
+  if(whichMenu) {
+    menu_driver(menuSub[currentSubMenu], operation);
+  } else {
+    menu_driver(menu, operation);
+  }
+}
+
+void DisplayAsci::prosessSubMenu(int keyPress) {
+  int index = item_index(current_item(menuSub[currentSubMenu]));
+
+  ConfigEntryValue* configEntry = &(configArray[currentSubMenu]->values[index]);
+
+  if(keyPress == '+'){
+    configEntry->value += configEntry->modSize;
+    if(configEntry->value > configEntry->max) {
+      configEntry->value = configEntry->max;
+    }
+  } else if(keyPress == '-'){
+    configEntry->value -= configEntry->min;
+    if(configEntry->value < configEntry->min) {
+      configEntry->value = configEntry->min;
+    }
+  }
+  sprintf(configEntry->valueString, "%f", configEntry->value);
+    
+  enableSubMenu();
 }
 
 void DisplayAsci::updateMenu(int keyPress){
@@ -141,39 +237,59 @@ void DisplayAsci::updateMenu(int keyPress){
     return;
   }
 
-  int dirty = 0;
+  int dirtyMenu = 0;
 
   switch(keyPress) {
     case KEY_DOWN:
     case SDLK_DOWN:
-      menu_driver(menu, REQ_DOWN_ITEM);
+      menuOperation(REQ_DOWN_ITEM);
+      enableSubMenu();
       break;
     case KEY_UP:
     case SDLK_UP:
-      menu_driver(menu, REQ_UP_ITEM);
+      menuOperation(REQ_UP_ITEM);
+      enableSubMenu();
+      break;
+    case KEY_RIGHT:
+    case SDLK_RIGHT:
+      mvwprintw(window, 1, 1, "        ");
+      mvwprintw(windowSub, 1, 1, "Selected");
+      whichMenu = 1;
+      break;
+    case KEY_LEFT:
+    case SDLK_LEFT:
+      mvwprintw(window, 1, 1, "Selected");
+      mvwprintw(windowSub, 1, 1, "        ");
+      whichMenu = 0;
       break;
     case ' ':
-      menu_driver(menu, REQ_TOGGLE_ITEM);
-      dirty = 1;
+      menuOperation(REQ_TOGGLE_ITEM);
+      dirtyMenu = 1;
       break;
+    case '+':
+    case '-':
+      prosessSubMenu(keyPress);
+      break;
+
+  }
+
+  if(dirtyMenu) {
+    for(int i = 0; i < MENU_ITEMS; ++i) {
+      configArray[i]->enabled = item_value(menuItems[i]);
+    }
   }
 
   post_menu(menu);
+  wrefresh(window);
+  wrefresh(windowSub);
   refresh();
-
-  if(dirty) {
-    int n_choices = sizeof(configArray) / sizeof(configArray[0]);
-    for(int i = 0; i < n_choices; ++i) {
-      configArray[i]->value = item_value(menuItems[i]);
-    }
-  }
 }
 
 void DisplayAsci::update(int keyPress){
   updateMenu(keyPress);
   unsigned int row_stride = inputBuffer->size() / height;
 
-  move(displayMenu * 10, 0);
+  move(displayMenu * 20, 0);
   printw("%i, %i %i\n", width, height, inputBuffer->size());
   for(unsigned int line = 0; line < height; line += 15){
     for(unsigned int col = 0; col < row_stride; col += 30){
@@ -281,6 +397,8 @@ void DisplayAsci::update(int keyPress){
     }
     addstr("\n");
   }
+  mvprintw(LINES - 3, 0, "\"M\" to display menu");
+  mvprintw(LINES - 2, 0, "\"Q\" to exit");
   refresh();
 }
 

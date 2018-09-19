@@ -1,12 +1,8 @@
 #include "config.h"
 
-Config config = {
-  { true, "blurGaussian" },
-  { true, "filterThin" },
-  { true, "filterSmallFeatures" }
-};
+Config config = {};
 
-ConfigEntry* configArray[3] = {
+ConfigEntry* configArray[MENU_ITEMS] = {
   &config.blurGaussian,
   &config.filterThin,
   &config.filterSmallFeatures

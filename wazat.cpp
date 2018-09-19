@@ -36,6 +36,7 @@ int main()
   DisplaySdl displayProcessed(outputJpegBuffer, &outputJpegBufferEstimatedLength);
   DisplayAsci displayParsed(parsedBuffer, inputDevice.width, inputDevice.height);
 
+  timeout(0);  // Non blocking keyboard read.
   while(run){
     if(!inputDevice.grabFrame()){
       break;
@@ -45,14 +46,18 @@ int main()
     parseJpeg(cameraBuffer, cameraBufferLength, parsedBuffer, width, height);
     displayParsed.update(keyPress);
 
-    if(config.blurGaussian.value){    
-      blur(parsedBuffer, width, height);
+    if(config.blurGaussian.enabled){    
+      blur(parsedBuffer,
+           width,
+           height,
+           config.blurGaussian.values[0].value,
+           config.blurGaussian.values[1].value);
     }
     getFeatures(parsedBuffer, featureBuffer, width, height);
-    if(config.filterThin.value){
+    if(config.filterThin.enabled){
       filterThin(featureBuffer, width, height);
     }
-    if(config.filterSmallFeatures.value){
+    if(config.filterSmallFeatures.enabled){
       filterSmallFeatures(featureBuffer, width, height);
     }
     merge(parsedBuffer, featureBuffer, width, height);
