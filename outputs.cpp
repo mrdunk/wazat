@@ -219,7 +219,7 @@ void DisplayAsci::prosessSubMenu(int keyPress) {
       configEntry->value = configEntry->max;
     }
   } else if(keyPress == '-'){
-    configEntry->value -= configEntry->min;
+    configEntry->value -= configEntry->modSize;
     if(configEntry->value < configEntry->min) {
       configEntry->value = configEntry->min;
     }

@@ -20,7 +20,9 @@ void blur(std::vector<unsigned char>& inputBuffer,
 void getFeatures(std::vector<unsigned char>& inputBuffer,
                  std::vector<unsigned char>& featureBuffer,
                  const unsigned int width,
-                 const unsigned int height);
+                 const unsigned int height,
+                 int threshold,
+                 int border);
 
 void filterThin(std::vector<unsigned char>& featureBuffer, 
                 const unsigned int width,

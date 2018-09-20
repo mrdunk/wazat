@@ -53,7 +53,12 @@ int main()
            config.blurGaussian.values[0].value,
            config.blurGaussian.values[1].value);
     }
-    getFeatures(parsedBuffer, featureBuffer, width, height);
+    getFeatures(parsedBuffer,
+                featureBuffer,
+                width,
+                height,
+                config.getFeatures.values[0].value,
+                config.getFeatures.values[1].value);
     if(config.filterThin.enabled){
       filterThin(featureBuffer, width, height);
     }

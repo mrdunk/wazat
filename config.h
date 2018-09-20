@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#define MENU_ITEMS 3
+#define MENU_ITEMS 4
 
 
 struct ConfigEntryValue {
@@ -30,6 +30,15 @@ struct Config {
       {
         {"blurDepth", 3.0, 2.0, 3.0, 7.0},
         {"blurSigma", 1.0, 0.2, 0.2, 3.0}
+      }
+    };
+  ConfigEntry getFeatures =
+    {"getFeatures",
+      nullptr,
+      true,
+      {
+        {"threshold", 50, 1, 5, 250},
+        {"border", 5, 1, 1, 50}
       }
     };
   ConfigEntry filterThin =
