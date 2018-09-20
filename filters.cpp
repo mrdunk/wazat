@@ -124,57 +124,14 @@ void getFeatures(std::vector<unsigned char>& inputBuffer,
 void filterThin(std::vector<unsigned char>& featureBuffer, 
                 const unsigned int width,
                 const unsigned int height) {
-  /*int border = 1;
-  std::vector<unsigned char> tmpBuffer;
-
-  // Thin lines in x direction.
-  unsigned int start = 0;
-  for(unsigned int y = border; y < height - border; y++) {
-    start = 0;
-    for(unsigned int x = border; x < width - border; x++) {
-      if(featureBuffer[x + y * width]) {
-        if(!start) {
-          start = x;
-        }
-      } else {
-        if(start) {
-          unsigned int mid = (start + x) / 2;
-          for(unsigned int xx = start; xx <= x; xx++) {
-            featureBuffer[xx + y * width] = 0;
-          }
-          featureBuffer[mid + y * width] = 1;
-          start = 0;
-        }
-      }
-    }
-  }
-
-  // Thin lines in y direction.
-  for(unsigned int x = border; x < width - border; x++) {
-    start = 0;
-    for(unsigned int y = border; y < height - border; y++) {
-      if(featureBuffer[x + y * width]) {
-        if(!start) {
-          start = y;
-        }
-      } else {
-        if(start) {
-          unsigned int mid = (start + y) / 2;
-          for(unsigned int yy = start; yy <= y; yy++) {
-            featureBuffer[x + yy * width] = 1;
-          }
-          featureBuffer[x + mid * width] = 1;
-          start = 0;
-        }
-      }
-    }
-  }*/
   // http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
   unsigned char tempBuffer[width * height] = {};
   int border = 1;
   int count = 1;
+  int pass = 0;
   while(count) {
     count = 0;
+    pass++;
     for(unsigned int x = border; x < width - border; x++) {
       for(unsigned int y = border; y < height - border; y++) {
         if(featureBuffer[x + y * width]) {
@@ -189,38 +146,6 @@ void filterThin(std::vector<unsigned char>& featureBuffer,
             featureBuffer[(x + 0) + (y + 1) * width] +
             featureBuffer[(x + 1) + (y + 1) * width];
           int s = 0;
-          /*if(featureBuffer[(x - 1) + (y - 1) * width] != 
-              featureBuffer[(x + 0) + (y - 1) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x + 0) + (y - 1) * width] != 
-              featureBuffer[(x + 1) + (y - 1) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x + 1) + (y - 1) * width] != 
-              featureBuffer[(x + 1) + (y + 0) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x + 1) + (y + 0) * width] != 
-              featureBuffer[(x + 1) + (y + 1) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x + 1) + (y + 1) * width] != 
-              featureBuffer[(x + 0) + (y + 1) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x + 0) + (y + 1) * width] != 
-              featureBuffer[(x - 1) + (y + 1) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x - 1) + (y + 1) * width] != 
-              featureBuffer[(x - 1) + (y + 0) * width]) {
-            s++;
-          }
-          if(featureBuffer[(x - 1) + (y + 0) * width] != 
-              featureBuffer[(x - 1) + (y - 1) * width]) {
-            s++;
-          }*/
           s += (featureBuffer[(x - 1) + (y - 1) * width] == 0) &&
                 featureBuffer[(x + 0) + (y - 1) * width];
           s += (featureBuffer[(x + 0) + (y - 1) * width] == 0) &&
@@ -238,11 +163,32 @@ void filterThin(std::vector<unsigned char>& featureBuffer,
           s += (featureBuffer[(x - 1) + (y + 0) * width] == 0) &&
                 featureBuffer[(x - 1) + (y - 1) * width];
 
-          tempBuffer[x + y * width] = (n == 1) || (n >= 7) || (s >= 2);
-          /*if((n == 1) || (n >= 7) || (s >= 2)){
+          if(pass %2){
+            if((n > 1) && (n < 7) && (s < 2) &&
+                (featureBuffer[(x + 0) + (y - 1) * width] *
+                 featureBuffer[(x + 1) + (y + 0) * width] *
+                 featureBuffer[(x + 0) + (y + 1) * width] == 0) &&
+                (featureBuffer[(x + 1) + (y + 0) * width] *
+                 featureBuffer[(x + 0) + (y + 1) * width] *
+                 featureBuffer[(x - 1) + (y + 0) * width] == 0)) {
+              tempBuffer[x + y * width] = 0;
+            } else {
+              tempBuffer[x + y * width] = 1;
+            }
+            //tempBuffer[x + y * width] = (n == 1) || (n >= 7) || (s >= 2);
           } else {
-            std::cout << n << "," << s << std::endl;
-          }*/
+            if((n > 1) && (n < 7) && (s < 2) &&
+                (featureBuffer[(x + 0) + (y - 1) * width] *
+                 featureBuffer[(x + 1) + (y + 0) * width] *
+                 featureBuffer[(x - 1) + (y + 0) * width] == 0) &&
+                (featureBuffer[(x + 0) + (y - 1) * width] *
+                 featureBuffer[(x + 0) + (y + 1) * width] *
+                 featureBuffer[(x - 1) + (y + 0) * width] == 0)) {
+              tempBuffer[x + y * width] = 0;
+            } else {
+              tempBuffer[x + y * width] = 1;
+            }
+          }
 
         }
       }
