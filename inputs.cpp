@@ -18,7 +18,7 @@ void errno_exit(const char *s) {
 Camera::Camera(const char* deviceName_,
                enum IoMethod io_,
                void** cameraBuffer_,
-               unsigned int* bufferLength_){
+               size_t* bufferLength_){
   deviceName = deviceName_;
   io = io_;
   cameraBuffer = cameraBuffer_;
@@ -299,17 +299,26 @@ void Camera::prepareBuffer(){
 
 File::File(const char* filename_,
            void** buffer_,
-           unsigned int* bufferLength_) : 
+           size_t* bufferLength_) : 
               filename(filename_),
               buffer(buffer_),
               bufferLength(bufferLength_){
   getImageProperties();
 }
 
+File::~File() {
+  delete[] (char*)(*buffer);
+}
+
 int File::grabFrame() {
   std::ifstream file(filename, std::ios::in|std::ios::binary|std::ios::ate);
-  if (file.is_open()) {
+  if(file.is_open()) {
     std::streampos size = file.tellg();
+    if((unsigned long)size > *bufferLength) {
+      delete[] (char*)(*buffer);
+      *buffer = new char[size];
+      *bufferLength = size;
+    }
     file.seekg (0, std::ios::beg);
     file.read ((char*)(*buffer), size);
     file.close();
@@ -339,7 +348,7 @@ void File::getImageProperties(){
 
 
 void parseJpeg(void* inputBuffer,
-               unsigned int& inputBufferLength,
+               size_t& inputBufferLength,
                std::vector<unsigned char>& outputBuffer,
                unsigned int& width,
                unsigned int& height) {

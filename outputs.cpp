@@ -424,7 +424,7 @@ void DisplayAsci::cursesCleanup(){
   endwin();
 }
 
-void saveJpeg(void* inputBuffer, unsigned int inputBufferLength){
+void saveJpeg(void* inputBuffer, size_t inputBufferLength){
   int jpgfile;
   if((jpgfile = open("/tmp/myimage.jpeg", O_WRONLY | O_CREAT, 0660)) < 0){
     errno_exit("open");

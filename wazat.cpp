@@ -16,20 +16,20 @@ int main()
   int keyPress;
   int run = 1;
   void* inputBuffer = NULL;
-  unsigned int inputBufferLength = 0;
+  size_t inputBufferLength = 0;
   std::vector<unsigned char> parsedBuffer;
   std::vector<unsigned char> featureBuffer;
   unsigned int width = 0;
   unsigned int  height = 0;
 
-	/*const char* deviceName = "/dev/video0";
+	const char* deviceName = "/dev/video0";
   Camera inputDevice(deviceName,
                      IO_METHOD_MMAP,
                      &inputBuffer,
-                     &inputBufferLength);*/
-  File inputDevice("filename.jpeg",
+                     &inputBufferLength);
+  /*File inputDevice("testData/im1small.jpg",
                    &inputBuffer,
-                   &inputBufferLength);
+                   &inputBufferLength);*/
   
   unsigned int outputJpegBufferEstimatedLength =
     inputDevice.width * inputDevice.height * 3;

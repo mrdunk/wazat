@@ -9,6 +9,7 @@
 #include <math.h>
 #include <iomanip>
 #include <algorithm>
+#include <string.h>
 
 /* Blur an image to smooth the detail. */
 void blur(std::vector<unsigned char>& inputBuffer,

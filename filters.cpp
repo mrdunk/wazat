@@ -36,7 +36,9 @@ void blur(std::vector<unsigned char>& inputBuffer,
            const int height,
            const int gausKernelSize,
            const double gausSigma) {
-  unsigned char tempBuffer[width * height * 3] = {};
+  // Put tempBuffer on the heap incase it is larger than stack.
+  unsigned char* tempBuffer = new unsigned char[width * height * 3];
+  memset(tempBuffer, 0, width * height * 3);
 
   const int radius = (gausKernelSize - 1) / 2;
   static Matrix k = getGaussian(gausKernelSize, gausSigma);
@@ -74,12 +76,10 @@ void blur(std::vector<unsigned char>& inputBuffer,
     }
   }
 
-  // TODO Profile these options for the fastest.
-  //std::copy_n(tempBuffer, width * height * 3, inputBuffer.data());
+  std::copy_n(tempBuffer, width * height * 3, inputBuffer.data());
   //memcpy(inputBuffer, tempBuffer, width * height * 3);
-  for(int i = 0; i < width * height * 3; i++) {
-    inputBuffer[i] = tempBuffer[i];
-  }
+
+  delete[] tempBuffer;
 }
 
 void getFeatures(std::vector<unsigned char>& inputBuffer,

@@ -34,7 +34,7 @@ class Camera {
   int captureHeight = 0;
   void* bufferStart;
   void** cameraBuffer;
-  unsigned int* bufferLength;
+  size_t* bufferLength;
 	struct v4l2_format format;
   struct v4l2_buffer bufferinfo;
 
@@ -45,7 +45,7 @@ class Camera {
 	Camera(const char* deviceName_,
          enum IoMethod io_,
          void** cameraBuffer_,
-         unsigned int* bufferLength_);
+         size_t* bufferLength_);
 
   ~Camera();
 
@@ -70,13 +70,14 @@ class Camera {
 class File {
   const char* filename;
   void** buffer;
-  unsigned int* bufferLength;
+  size_t* bufferLength;
 
  public:
   unsigned int width;
   unsigned int height;
 
-  File(const char* filename_, void** buffer_, unsigned int* bufferLength_);
+  File(const char* filename_, void** buffer_, size_t* bufferLength_);
+  ~File();
   int grabFrame();
  private:
   void getImageProperties();
@@ -84,11 +85,11 @@ class File {
 
 
 /* Save a JPEG formatted buffer to disk. */
-void saveJpeg(void* inputBuffer, unsigned int inputBufferLength);
+void saveJpeg(void* inputBuffer, size_t inputBufferLength);
 
 /* Take a JPEG formatted buffer and convert it to an array of pixel data. */
 void parseJpeg(void* inputBuffer,
-               unsigned int& inputBufferLength,
+               size_t& inputBufferLength,
                std::vector<unsigned char>& outputBuffer,
                unsigned int& width,
                unsigned int& height);
