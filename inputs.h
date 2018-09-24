@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
@@ -65,6 +66,21 @@ class Camera {
   void prepareBuffer();
 };
 
+
+class File {
+  const char* filename;
+  void** buffer;
+  unsigned int* bufferLength;
+
+ public:
+  unsigned int width;
+  unsigned int height;
+
+  File(const char* filename_, void** buffer_, unsigned int* bufferLength_);
+  int grabFrame();
+ private:
+  void getImageProperties();
+};
 
 
 /* Save a JPEG formatted buffer to disk. */

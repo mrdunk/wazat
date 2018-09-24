@@ -175,7 +175,6 @@ void filterThin(std::vector<unsigned char>& featureBuffer,
             } else {
               tempBuffer[x + y * width] = 1;
             }
-            //tempBuffer[x + y * width] = (n == 1) || (n >= 7) || (s >= 2);
           } else {
             if((n > 1) && (n < 7) && (s < 2) &&
                 (featureBuffer[(x + 0) + (y - 1) * width] *

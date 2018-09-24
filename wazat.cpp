@@ -7,7 +7,7 @@
  *
  * sudo apt install libjpeg-dev libsdl1.2-dev libsdl-image1.2-dev
  *
- * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lcurses
+ * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -O3
  * */
 
 
@@ -15,24 +15,27 @@ int main()
 {
   int keyPress;
   int run = 1;
-	const char* deviceName = "/dev/video0";
-  void* cameraBuffer = NULL;
-  unsigned int cameraBufferLength = 0;
+  void* inputBuffer = NULL;
+  unsigned int inputBufferLength = 0;
   std::vector<unsigned char> parsedBuffer;
   std::vector<unsigned char> featureBuffer;
   unsigned int width = 0;
   unsigned int  height = 0;
 
+	/*const char* deviceName = "/dev/video0";
   Camera inputDevice(deviceName,
                      IO_METHOD_MMAP,
-                     &cameraBuffer,
-                     &cameraBufferLength);
+                     &inputBuffer,
+                     &inputBufferLength);*/
+  File inputDevice("filename.jpeg",
+                   &inputBuffer,
+                   &inputBufferLength);
   
   unsigned int outputJpegBufferEstimatedLength =
     inputDevice.width * inputDevice.height * 3;
   void* outputJpegBuffer = new unsigned char[outputJpegBufferEstimatedLength];
 
-  //DisplaySdl displayRaw(cameraBuffer, &cameraBufferLength);
+  //DisplaySdl displayRaw(inputBuffer, &inputBufferLength);
   DisplaySdl displayProcessed(outputJpegBuffer, &outputJpegBufferEstimatedLength);
   DisplayAsci displayParsed(parsedBuffer, inputDevice.width, inputDevice.height);
 
@@ -41,9 +44,9 @@ int main()
     if(!inputDevice.grabFrame()){
       break;
     }
-    //saveJpeg(cameraBuffer, cameraBufferLength);
+    //saveJpeg(inputBuffer, inputBufferLength);
     //run &= displayRaw.update();
-    parseJpeg(cameraBuffer, cameraBufferLength, parsedBuffer, width, height);
+    parseJpeg(inputBuffer, inputBufferLength, parsedBuffer, width, height);
     displayParsed.update(keyPress);
 
     if(config.blurGaussian.enabled){    

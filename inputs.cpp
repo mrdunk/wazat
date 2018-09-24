@@ -297,6 +297,46 @@ void Camera::prepareBuffer(){
 }
 
 
+File::File(const char* filename_,
+           void** buffer_,
+           unsigned int* bufferLength_) : 
+              filename(filename_),
+              buffer(buffer_),
+              bufferLength(bufferLength_){
+  getImageProperties();
+}
+
+int File::grabFrame() {
+  std::ifstream file(filename, std::ios::in|std::ios::binary|std::ios::ate);
+  if (file.is_open()) {
+    std::streampos size = file.tellg();
+    file.seekg (0, std::ios::beg);
+    file.read ((char*)(*buffer), size);
+    file.close();
+    return size;
+  }
+  std::cout << "Could not read file: " << filename << std::endl;
+  return -1;
+}
+
+void File::getImageProperties(){
+  grabFrame();
+
+  struct jpeg_decompress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_decompress(&cinfo);
+  jpeg_mem_src(&cinfo, (unsigned char*)(*buffer), *bufferLength);
+  jpeg_read_header(&cinfo, TRUE);
+  jpeg_calc_output_dimensions(&cinfo);
+
+  width = cinfo.image_width;
+  height = cinfo.image_height;
+
+  jpeg_destroy_decompress(&cinfo);
+  std::cout << "getImageProperties\t" << width << "," << height << std::endl;
+}
+
 
 void parseJpeg(void* inputBuffer,
                unsigned int& inputBufferLength,

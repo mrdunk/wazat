@@ -430,7 +430,9 @@ void saveJpeg(void* inputBuffer, unsigned int inputBufferLength){
     errno_exit("open");
   }
 
-  write(jpgfile, inputBuffer, inputBufferLength);
+  if(write(jpgfile, inputBuffer, inputBufferLength)){
+    std::cout << "Could not write file: " << jpgfile << std::endl;
+  }
   close(jpgfile);
 }
 
