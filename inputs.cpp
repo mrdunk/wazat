@@ -1,13 +1,17 @@
 #include "inputs.h"
 
-int xioctl(int fh, int request, void *arg) {
+static void xioctl(int fh, int request, void *arg)
+{
   int r;
 
   do {
-    r = ioctl(fh, request, arg);
-  } while (-1 == r && EINTR == errno);
+    r = v4l2_ioctl(fh, request, arg);
+  } while (r == -1 && ((errno == EINTR) || (errno == EAGAIN)));
 
-  return r;
+  if (r == -1) {
+    fprintf(stderr, "error %d, %s\\n", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
 }
 
 void errno_exit(const char *s) {
@@ -25,8 +29,9 @@ Camera::Camera(const char* deviceName_,
   bufferLength = bufferLength_;
 
   // Open devce.
-  if((fd = open(deviceName_, O_RDWR)) < 0){
-    std::cout << "Could not open " << deviceName << "\n";
+  fd = v4l2_open(deviceName, O_RDWR | O_NONBLOCK, 0);
+  if (fd < 0) {
+    perror("Cannot open device");
     exit(EXIT_FAILURE);
   }
   std::cout << "Opened " << deviceName << "\n";
@@ -45,17 +50,17 @@ Camera::~Camera(){
     case IO_METHOD_READ:
       /* Nothing to do. */
       break;
-    case IO_METHOD_MMAP:
-    case IO_METHOD_USERPTR:
+    case IO_METHOD_MMAP_SINGLE:
+    case IO_METHOD_MMAP_DOUBLE:
       type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-      if (-1 == xioctl(fd, VIDIOC_STREAMOFF, &type)){
-        errno_exit("VIDIOC_STREAMOFF");
-      }
+      xioctl(fd, VIDIOC_STREAMOFF, &type);
+      for (unsigned int i = 0; i < numBuffers; ++i)
+        v4l2_munmap(buffers[i].start, buffers[i].length);
       break;
   }
 
   std::cout << "Closing " << deviceName << "\n";
-  close(fd);
+  v4l2_close(fd);
 }
 
 int Camera::grabFrame(){
@@ -72,25 +77,14 @@ int Camera::grabFrame(){
   }
 
   // The buffer's waiting in the outgoing queue.
-  if (-1 == xioctl(fd, VIDIOC_DQBUF, &bufferinfo)) {
-    switch (errno) {
-      case EAGAIN:
-        return 0;
-      case EIO:
-        /* Could ignore EIO, see spec. */
-        /* fall through */
-      default:
-        errno_exit("VIDIOC_DQBUF");
-    }
-  }
+  xioctl(fd, VIDIOC_DQBUF, &bufferinfo);
 
+  *cameraBuffer = buffers[bufferinfo.index].start;
   *bufferLength = bufferinfo.length;
+  //*bufferLength = bufferinfo.bytesused;
 
   // Put the buffer in the incoming queue
-  if (-1 == xioctl(fd, VIDIOC_QBUF, &bufferinfo)){
-    errno_exit("VIDIOC_QBUF");
-  }
-
+  xioctl(fd, VIDIOC_QBUF, &bufferinfo);
   return 1;
 }
 
@@ -98,14 +92,7 @@ void Camera::checkCapabilities(){
   v4l2_capability capabilities;
 
   // Check device v4l2 compatible.
-  if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &capabilities)) {
-    if (EINVAL == errno) {
-      std::cout << "Error: " << deviceName << " is not a V4L2 device.\n";
-      exit(EXIT_FAILURE);
-    } else {
-      errno_exit("VIDIOC_QUERYCAP");
-    }
-  }
+  xioctl(fd, VIDIOC_QUERYCAP, &capabilities);
 
   if(!(capabilities.capabilities & V4L2_CAP_VIDEO_CAPTURE)){
     std::cout << "Error: The device does not handle single-planar video capture.\n";
@@ -120,16 +107,9 @@ void Camera::checkCapabilities(){
         exit(EXIT_FAILURE);
       }
       break;
-
-    case IO_METHOD_MMAP:
+    case IO_METHOD_MMAP_SINGLE:
+    case IO_METHOD_MMAP_DOUBLE:
       std::cout << "Using IO_METHOD_MMAP\n";
-      if (!(capabilities.capabilities & V4L2_CAP_STREAMING)) {
-        std::cout << "Error: " << deviceName << " does not support streaming i/o\n";
-        exit(EXIT_FAILURE);
-      }
-      break;
-    case IO_METHOD_USERPTR:
-      std::cout << "Using IO_METHOD_USERPTR\n";
       if (!(capabilities.capabilities & V4L2_CAP_STREAMING)) {
         std::cout << "Error: " << deviceName << " does not support streaming i/o\n";
         exit(EXIT_FAILURE);
@@ -139,9 +119,9 @@ void Camera::checkCapabilities(){
 }
 
 void Camera::getImageProperties(){
-  grabFrame();
+  grabFrame();  // Will populate bufferLength.
 
-  struct jpeg_decompress_struct cinfo;
+  /*struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr jerr;
   cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_decompress(&cinfo);
@@ -152,28 +132,31 @@ void Camera::getImageProperties(){
   width = cinfo.image_width;
   height = cinfo.image_height;
 
-  jpeg_destroy_decompress(&cinfo);
+  jpeg_destroy_decompress(&cinfo);*/
+  width = captureWidth;
+  height = captureHeight;
   std::cout << "getImageProperties\t" << width << "," << height << std::endl;
 }
 
 void Camera::setFormat(){
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
-  format.fmt.pix.width = 800;
-  format.fmt.pix.height = 600;
-
-  if(xioctl(fd, VIDIOC_S_FMT, &format) < 0){
-    errno_exit("VIDIOC_S_FMT");
-  }
-
-  /* Buggy driver paranoia. */
-  unsigned int min = format.fmt.pix.width * 2;
-  if (format.fmt.pix.bytesperline < min){
-    format.fmt.pix.bytesperline = min;
-  }
-  min = format.fmt.pix.bytesperline * format.fmt.pix.height;
-  if (format.fmt.pix.sizeimage < min){
-    format.fmt.pix.sizeimage = min;
+  //format.fmt.pix.width = 800;
+  //format.fmt.pix.height = 600;
+  // format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+  format.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
+  // format.fmt.pix.field       = V4L2_FIELD_INTERLACED;
+  // format.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+  //
+  xioctl(fd, VIDIOC_S_FMT, &format);
+  if (format.fmt.pix.pixelformat != V4L2_PIX_FMT_RGB24) {
+  //if (format.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG &&
+      //format.fmt.pix.pixelformat != V4L2_PIX_FMT_YUYV) {
+    std::cout << "Image not in recognised format. Can't proceed." << std::endl;
+    std::cout << (char)(format.fmt.pix.pixelformat) << " " <<
+                 (char)(format.fmt.pix.pixelformat >> 8) << " " <<
+                 (char)(format.fmt.pix.pixelformat >> 16) << " " <<
+                 (char)(format.fmt.pix.pixelformat >> 24) << std::endl;
+    exit(EXIT_FAILURE);
   }
 
   captureWidth = format.fmt.pix.width;
@@ -189,24 +172,23 @@ void Camera::setBuffers(){
       assert(false && "TODO");
       break;
 
-    case IO_METHOD_MMAP:
-      initMmap();
+    case IO_METHOD_MMAP_SINGLE:
+      initMmap(1);
       break;
 
-    case IO_METHOD_USERPTR:
-      //init_userp(format.fmt.pix.sizeimage);
-      assert(false && "TODO");
+    case IO_METHOD_MMAP_DOUBLE:
+      initMmap(2);
       break;
   }
 
 
   // "$ v4l2-ctl -l" lets us see what our camera is capable of (and set to).
-  setControl(V4L2_CID_BRIGHTNESS, 0);
+  /*setControl(V4L2_CID_BRIGHTNESS, 0);
   setControl(V4L2_CID_CONTRAST, 0);
   setControl(V4L2_CID_SATURATION, 64);
   setControl(V4L2_CID_GAIN, 1);
   setControl(V4L2_CID_AUTO_WHITE_BALANCE, 1);
-  setControl(V4L2_CID_BACKLIGHT_COMPENSATION, 3);
+  setControl(V4L2_CID_BACKLIGHT_COMPENSATION, 3);*/
 }
 
 void Camera::setControl(int id, int value){
@@ -233,67 +215,52 @@ void Camera::setControl(int id, int value){
   }
 }
 
-void Camera::initMmap(){
-  std::cout << "Using IO_METHOD_MMAP\n";
+void Camera::initMmap(unsigned int numBuffers_) {
+  std::cout << "Using IO_METHOD_MMAP_SINGLE\n";
 
-  struct v4l2_requestbuffers bufrequest;
+  numBuffers = numBuffers_;
+
+  struct v4l2_requestbuffers bufrequest = {0};
+  bufrequest.count = numBuffers;
   bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   bufrequest.memory = V4L2_MEMORY_MMAP;
-  bufrequest.count = 1;
 
-  if (-1 == xioctl(fd, VIDIOC_REQBUFS, &bufrequest)) {
-    if (EINVAL == errno) {
-      std::cout << "Error: " << deviceName << " does not support memory mapping\n";
-      exit(EXIT_FAILURE);
-    } else {
-      errno_exit("VIDIOC_REQBUFS");
-    }
-  }
+  xioctl(fd, VIDIOC_REQBUFS, &bufrequest);
 
   struct v4l2_buffer bufferinfo = {0};
-  bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  bufferinfo.memory = V4L2_MEMORY_MMAP;
-  bufferinfo.index = 0;
+  for (numBuffers = 0; numBuffers < bufrequest.count; ++numBuffers) {
+    memset(&bufferinfo, 0, sizeof(bufferinfo));
 
-  if(ioctl(fd, VIDIOC_QUERYBUF, &bufferinfo) < 0){
-    errno_exit("VIDIOC_QUERYBUF");
+    bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    bufferinfo.memory = V4L2_MEMORY_MMAP;
+    bufferinfo.index = numBuffers;
+
+    xioctl(fd, VIDIOC_QUERYBUF, &bufferinfo);
+
+    buffers[numBuffers].length = bufferinfo.length;
+    buffers[numBuffers].start = v4l2_mmap(NULL, bufferinfo.length,
+        PROT_READ | PROT_WRITE, MAP_SHARED,
+        fd, bufferinfo.m.offset);
+
+    if (MAP_FAILED == buffers[numBuffers].start) {
+      perror("mmap");
+      exit(EXIT_FAILURE);
+    }
   }
-
-  bufferStart = mmap(
-      NULL,
-      bufferinfo.length,
-      PROT_READ | PROT_WRITE,
-      MAP_SHARED,
-      fd,
-      bufferinfo.m.offset
-      );
-  *cameraBuffer = bufferStart;
-
-  if(bufferStart == MAP_FAILED){
-    errno_exit("mmap");
-  }
-
-  memset(bufferStart, 0, bufferinfo.length);
 }
 
 void Camera::prepareBuffer(){
-  memset(&bufferinfo, 0, sizeof(bufferinfo));
-
-  bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  bufferinfo.memory = V4L2_MEMORY_MMAP;
-  bufferinfo.index = 0; /* Queueing buffer index 0. */
-
-  // Put the buffer in the incoming queue.
-  // For some hardware this needs done before activating streaming.
-  if (-1 == xioctl(fd, VIDIOC_QBUF, &bufferinfo)){
-    errno_exit("VIDIOC_QBUF");
+  for (unsigned int i = 0; i < numBuffers; ++i) {
+    memset(&bufferinfo, 0, sizeof(bufferinfo));
+    bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    bufferinfo.memory = V4L2_MEMORY_MMAP;
+    bufferinfo.index = i;
+    xioctl(fd, VIDIOC_QBUF, &bufferinfo);
   }
 
   // Activate streaming
   int type = bufferinfo.type;
-  if (-1 == xioctl(fd, VIDIOC_STREAMON, &type)){
-    errno_exit("VIDIOC_STREAMON");
-  }
+  xioctl(fd, VIDIOC_STREAMON, &type);
 }
 
 
@@ -384,4 +351,12 @@ void parseJpeg(void* inputBuffer,
 
 }
 
+void parseImage(void* inputBuffer,
+                size_t& inputBufferLength,
+                std::vector<unsigned char>& outputBuffer) {
+  outputBuffer.clear();
+  for(unsigned int i = 0; i < inputBufferLength; i++){
+    outputBuffer.push_back(((unsigned char*)inputBuffer)[i]);
+  }
+}
 

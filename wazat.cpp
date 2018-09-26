@@ -5,9 +5,9 @@
 
 /* http://jwhsmith.net/2014/12/capturing-a-webcam-stream-using-v4l2/ 
  *
- * sudo apt install libjpeg-dev libsdl1.2-dev libsdl-image1.2-dev
+ * sudo apt install libjpeg-dev libsdl1.2-dev libsdl-image1.2-dev libv4l2-dev
  *
- * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -O3
+ * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -lv4l2 -O3
  * */
 
 
@@ -22,9 +22,9 @@ int main()
   unsigned int width = 0;
   unsigned int  height = 0;
 
-	const char* deviceName = "/dev/video0";
+	const char* deviceName = "/dev/video1";
   Camera inputDevice(deviceName,
-                     IO_METHOD_MMAP,
+                     IO_METHOD_MMAP_SINGLE,
                      &inputBuffer,
                      &inputBufferLength);
   /*File inputDevice("testData/im1small.jpg",
@@ -46,7 +46,9 @@ int main()
     }
     //saveJpeg(inputBuffer, inputBufferLength);
     //run &= displayRaw.update();
-    parseJpeg(inputBuffer, inputBufferLength, parsedBuffer, width, height);
+    
+    //parseJpeg(inputBuffer, inputBufferLength, parsedBuffer, width, height);
+    parseImage(inputBuffer, inputBufferLength, parsedBuffer);
     displayParsed.update(keyPress);
 
     if(config.blurGaussian.enabled){    
@@ -58,22 +60,22 @@ int main()
     }
     getFeatures(parsedBuffer,
                 featureBuffer,
-                width,
-                height,
+                inputDevice.width,
+                inputDevice.height,
                 config.getFeatures.values[0].value,
                 config.getFeatures.values[1].value);
     if(config.filterThin.enabled){
-      filterThin(featureBuffer, width, height);
+      filterThin(featureBuffer, inputDevice.width, inputDevice.height);
     }
     if(config.filterSmallFeatures.enabled){
-      filterSmallFeatures(featureBuffer, width, height);
+      filterSmallFeatures(featureBuffer, inputDevice.width, inputDevice.height);
     }
-    merge(parsedBuffer, featureBuffer, width, height);
+    merge(parsedBuffer, featureBuffer, inputDevice.width, inputDevice.height);
 
     makeJpeg(parsedBuffer, 
              &outputJpegBuffer,
              outputJpegBufferEstimatedLength,
-             width, height);
+             inputDevice.width, inputDevice.height);
 
     keyPress = getch();
     run &= displayProcessed.update(keyPress);

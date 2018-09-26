@@ -15,14 +15,19 @@
 #include <jpeglib.h>
 #include <stdlib.h>
 #include <algorithm>
-
+#include <linux/videodev2.h>
+#include <libv4l2.h>
 
 enum IoMethod {
         IO_METHOD_READ,
-        IO_METHOD_MMAP,
-        IO_METHOD_USERPTR,
+        IO_METHOD_MMAP_SINGLE,
+        IO_METHOD_MMAP_DOUBLE,
 };
 
+struct buffer {
+  void   *start;
+  size_t length;
+};
 
 void errno_exit(const char *s);
 
@@ -32,11 +37,13 @@ class Camera {
   enum IoMethod io;
   int captureWidth = 0;
   int captureHeight = 0;
-  void* bufferStart;
+  unsigned int numBuffers;
   void** cameraBuffer;
   size_t* bufferLength;
+  struct buffer buffers[2];
 	struct v4l2_format format;
   struct v4l2_buffer bufferinfo;
+  int imageformat;
 
  public:
   unsigned int width;
@@ -61,7 +68,7 @@ class Camera {
   void setBuffers();
   void setControl(int id, int value);
 
-  void initMmap();
+  void initMmap(unsigned int numBuffers_);
 
   void prepareBuffer();
 };
@@ -93,4 +100,8 @@ void parseJpeg(void* inputBuffer,
                std::vector<unsigned char>& outputBuffer,
                unsigned int& width,
                unsigned int& height);
+
+void parseImage(void* inputBuffer,
+                size_t& inputBufferLength,
+                std::vector<unsigned char>& outputBuffer);
 
