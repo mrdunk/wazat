@@ -15,29 +15,23 @@ int main()
 {
   int keyPress;
   int run = 1;
-  void* inputBuffer = NULL;
-  size_t inputBufferLength = 0;
-  std::vector<unsigned char> parsedBuffer;
-  std::vector<unsigned char> featureBuffer;
-  unsigned int width = 0;
-  unsigned int  height = 0;
+  struct buffer inputBuffer = {0};
+  struct buffer outputJpegBuffer = {0};
+  std::vector<uint8_t> featureBuffer;
 
-	const char* deviceName = "/dev/video1";
+	const char* deviceName = "/dev/video0";
   Camera inputDevice(deviceName,
                      IO_METHOD_MMAP_SINGLE,
-                     &inputBuffer,
-                     &inputBufferLength);
+                     &(inputBuffer.start),
+                     &(inputBuffer.length));
   /*File inputDevice("testData/im1small.jpg",
                    &inputBuffer,
                    &inputBufferLength);*/
   
-  unsigned int outputJpegBufferEstimatedLength =
-    inputDevice.width * inputDevice.height * 3;
-  void* outputJpegBuffer = new unsigned char[outputJpegBufferEstimatedLength];
-
-  //DisplaySdl displayRaw(inputBuffer, &inputBufferLength);
-  DisplaySdl displayProcessed(outputJpegBuffer, &outputJpegBufferEstimatedLength);
-  DisplayAsci displayParsed(parsedBuffer, inputDevice.width, inputDevice.height);
+  DisplaySdl displayProcessed(outputJpegBuffer);
+  DisplayAsci displayParsed(inputBuffer,
+                            inputDevice.width,
+                            inputDevice.height);
 
   timeout(0);  // Non blocking keyboard read.
   while(run){
@@ -47,18 +41,16 @@ int main()
     //saveJpeg(inputBuffer, inputBufferLength);
     //run &= displayRaw.update();
     
-    //parseJpeg(inputBuffer, inputBufferLength, parsedBuffer, width, height);
-    parseImage(inputBuffer, inputBufferLength, parsedBuffer);
     displayParsed.update(keyPress);
 
     if(config.blurGaussian.enabled){    
-      blur(parsedBuffer,
-           width,
-           height,
+      blur(inputBuffer,
+           inputDevice.width,
+           inputDevice.height,
            config.blurGaussian.values[0].value,
            config.blurGaussian.values[1].value);
     }
-    getFeatures(parsedBuffer,
+    getFeatures(inputBuffer,
                 featureBuffer,
                 inputDevice.width,
                 inputDevice.height,
@@ -70,11 +62,13 @@ int main()
     if(config.filterSmallFeatures.enabled){
       filterSmallFeatures(featureBuffer, inputDevice.width, inputDevice.height);
     }
-    merge(parsedBuffer, featureBuffer, inputDevice.width, inputDevice.height);
+    merge(inputBuffer,
+          featureBuffer,
+          inputDevice.width,
+          inputDevice.height);
 
-    makeJpeg(parsedBuffer, 
-             &outputJpegBuffer,
-             outputJpegBufferEstimatedLength,
+    makeJpeg(inputBuffer,
+             outputJpegBuffer,
              inputDevice.width, inputDevice.height);
 
     keyPress = getch();
@@ -84,5 +78,5 @@ int main()
     }
   }
 
-  delete[] (unsigned char*)outputJpegBuffer;
+  delete[] (uint8_t*)outputJpegBuffer.start;
 }

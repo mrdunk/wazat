@@ -1,4 +1,5 @@
 #include "filters.h"
+#include "inputs.h"
 
 typedef std::vector<double> Array;
 typedef std::vector<Array> Matrix;
@@ -31,14 +32,18 @@ Matrix getGaussian(const int size, const double sigma) {
   return kernel;
 }
 
-void blur(std::vector<unsigned char>& inputBuffer,
-           const int width,
-           const int height,
-           const int gausKernelSize,
-           const double gausSigma) {
-  // Put tempBuffer on the heap incase it is larger than stack.
-  unsigned char* tempBuffer = new unsigned char[width * height * 3];
-  memset(tempBuffer, 0, width * height * 3);
+void blur(struct buffer& inputBuffer,
+          const int width,
+          const int height,
+          const int gausKernelSize,
+          const double gausSigma) {
+  static struct buffer tmpBuffer = {0};
+  if(tmpBuffer.length != inputBuffer.length) {
+    delete[] (uint8_t*)tmpBuffer.start;
+    tmpBuffer.length = inputBuffer.length;
+    tmpBuffer.start = new uint8_t[inputBuffer.length];
+  }
+  //memset(tmpBuffer.start, 0, tmpBuffer.length);
 
   const int radius = (gausKernelSize - 1) / 2;
   static Matrix k = getGaussian(gausKernelSize, gausSigma);
@@ -56,6 +61,7 @@ void blur(std::vector<unsigned char>& inputBuffer,
       for(int c = 0; c < 3; c++) {
         //assert(y * width * 3 + x + c >= 0);
         //assert(y * width * 3 + x + c < width * height * 3);
+        ((uint8_t*)tmpBuffer.start)[y * width * 3 + x + c] = 0;
 
         for(int ky = -radius; ky <= radius; ky++) {
           for(int kx = -radius; kx <= radius; kx++) {
@@ -64,50 +70,48 @@ void blur(std::vector<unsigned char>& inputBuffer,
             //assert(address >= 0);
             //assert(address < width * height * 3);
 
-            //tempBuffer[y * width * 3 + x + c] += inputBuffer[address] / 9;
+            //tmpBuffer.start[y * width * 3 + x + c] += inputBuffer[address] / 9;
 
-            tempBuffer[y * width * 3 + x + c] +=
-              k[kx + radius][ky + radius] * inputBuffer[address];
+            ((uint8_t*)tmpBuffer.start)[y * width * 3 + x + c] +=
+              k[kx + radius][ky + radius] * ((uint8_t*)inputBuffer.start)[address];
           }
         }
-        //assert(tempBuffer[y * width * 3 + x + c] >= 0);
-        //assert(tempBuffer[y * width * 3 + x + c] <= 0xFF);
+        //assert(tempBuffer.start[y * width * 3 + x + c] >= 0);
+        //assert(tempBuffer.start[y * width * 3 + x + c] <= 0xFF);
       }
     }
   }
 
-  std::copy_n(tempBuffer, width * height * 3, inputBuffer.data());
-  //memcpy(inputBuffer, tempBuffer, width * height * 3);
-
-  delete[] tempBuffer;
+  memcpy(inputBuffer.start, tmpBuffer.start, inputBuffer.length);
+  //std::swap(tmpBuffer.start, inputBuffer.start);
 }
 
-void getFeatures(std::vector<unsigned char>& inputBuffer,
-                 std::vector<unsigned char>& featureBuffer,
+void getFeatures(struct buffer& inputBuffer,
+                 std::vector<uint8_t>& featureBuffer,
                  const unsigned int width,
                  const unsigned int height,
                  int threshold,
                  int border) {
 
   featureBuffer.clear(); 
-  if(featureBuffer.size() < inputBuffer.size()) {
-    featureBuffer.resize(inputBuffer.size());
+  if(featureBuffer.size() < inputBuffer.length) {
+    featureBuffer.resize(inputBuffer.length);
   }
   
   for(unsigned int x = border; x < width -border; x++) {
     for(unsigned int y = border; y < height -border; y++) {
-      int dxR = (int)inputBuffer[3*(x + y * width) +0] -
-                     inputBuffer[3*(x + y * width -border) +0];
-      int dxG = (int)inputBuffer[3*(x + y * width) +1] -
-                     inputBuffer[3*(x + y * width -border) +1];
-      int dxB = (int)inputBuffer[3*(x + y * width) +2] -
-                     inputBuffer[3*(x + y * width -border) +2];
-      int dyR = (int)inputBuffer[3*(x + y * width) +0] -
-                     inputBuffer[3*(x + (y -border) * width) +0];
-      int dyG = (int)inputBuffer[3*(x + y * width) +1] -
-                     inputBuffer[3*(x + (y -border) * width) +1];
-      int dyB = (int)inputBuffer[3*(x + y * width) +2] -
-                     inputBuffer[3*(x + (y -border) * width) +2];
+      int dxR = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +0] -
+                     ((uint8_t*)inputBuffer.start)[3*(x + y * width -border) +0];
+      int dxG = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +1] -
+                     ((uint8_t*)inputBuffer.start)[3*(x + y * width -border) +1];
+      int dxB = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +2] -
+                     ((uint8_t*)inputBuffer.start)[3*(x + y * width -border) +2];
+      int dyR = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +0] -
+                     ((uint8_t*)inputBuffer.start)[3*(x + (y -border) * width) +0];
+      int dyG = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +1] -
+                     ((uint8_t*)inputBuffer.start)[3*(x + (y -border) * width) +1];
+      int dyB = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +2] -
+                     ((uint8_t*)inputBuffer.start)[3*(x + (y -border) * width) +2];
 
       if(abs(dxR) + abs(dxG) + abs(dxB) + abs(dyR) + abs(dyG) + abs(dyB) >
           threshold * 2) {
@@ -121,11 +125,11 @@ void getFeatures(std::vector<unsigned char>& inputBuffer,
   }
 }
 
-void filterThin(std::vector<unsigned char>& featureBuffer, 
+void filterThin(std::vector<uint8_t>& featureBuffer, 
                 const unsigned int width,
                 const unsigned int height) {
   // http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
-  unsigned char tempBuffer[width * height] = {};
+  uint8_t tempBuffer[width * height] = {};
   int border = 1;
   int count = 1;
   int pass = 0;
@@ -201,22 +205,23 @@ void filterThin(std::vector<unsigned char>& featureBuffer,
   }
 }
 
-void merge(std::vector<unsigned char>& inputBuffer,
-           std::vector<unsigned char>& featureBuffer,
+void merge(struct buffer& inputBuffer,
+           std::vector<uint8_t>& featureBuffer,
            const unsigned int width,
            const unsigned int height) {
+  assert(width * height * 3 <= featureBuffer.size());
   for(unsigned int x = 0; x < width; x++) {
     for(unsigned int y = 0; y < height; y++) {
       if(featureBuffer[x + y * width]) {
-        inputBuffer[(x + y * width) * 3 + 0] = 255;
-        inputBuffer[(x + y * width) * 3 + 1] = 255;
-        inputBuffer[(x + y * width) * 3 + 2] = 255;
+        ((uint8_t*)inputBuffer.start)[(x + y * width) * 3 + 0] = 255;
+        ((uint8_t*)inputBuffer.start)[(x + y * width) * 3 + 1] = 255;
+        ((uint8_t*)inputBuffer.start)[(x + y * width) * 3 + 2] = 255;
       }
     }
   }
 }
 
-void filterSmallFeatures(std::vector<unsigned char>& featureBuffer,
+void filterSmallFeatures(std::vector<uint8_t>& featureBuffer,
             const unsigned int width,
             const unsigned int height) {
   unsigned int border = 10;

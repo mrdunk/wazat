@@ -1,28 +1,31 @@
 #include "outputs.h"
 #include "config.h"
 
-DisplaySdl::DisplaySdl(void* inputBuffer_, unsigned int* inputBufferLength_) {
+DisplaySdl::DisplaySdl(struct buffer& inputBuffer_) {
   firstFrameRead = 0;
-  setBuffer(inputBuffer_, inputBufferLength_);
+  setBuffer(inputBuffer_);
 }
 
 DisplaySdl::~DisplaySdl() {
   displayCleanup();
 }
 
-void DisplaySdl::setBuffer(void* inputBuffer_, unsigned int* inputBufferLength_) {
-  inputBuffer = inputBuffer_;
-  inputBufferLength = inputBufferLength_;
+void DisplaySdl::setBuffer(struct buffer& inputBuffer_) {
+  inputBuffer = &inputBuffer_;
 }
 
 
 int DisplaySdl::update(int& keyPress){
+  if(!inputBuffer->length) {
+    return 1;
+  }
+
   struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr jerr;
   cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_decompress(&cinfo);
 
-  jpeg_mem_src(&cinfo, (unsigned char*)inputBuffer, *inputBufferLength);
+  jpeg_mem_src(&cinfo, (uint8_t*)inputBuffer->start, inputBuffer->length);
 
   jpeg_read_header(&cinfo, TRUE);
   // std::cout << cinfo.image_width << "," << cinfo.image_height << "," << cinfo.num_components << "\n";
@@ -32,7 +35,7 @@ int DisplaySdl::update(int& keyPress){
   }
 
   // Create a stream based on our buffer.
-  bufferStream = SDL_RWFromMem((unsigned char*)inputBuffer, *inputBufferLength);
+  bufferStream = SDL_RWFromMem((uint8_t*)inputBuffer->start, inputBuffer->length);
 
   // Create a surface using the data coming out of the above stream.
   frame = IMG_Load_RW(bufferStream, 0);
@@ -80,7 +83,7 @@ void DisplaySdl::displayCleanup(){
   SDL_Quit();
 }
 
-DisplayAsci::DisplayAsci(std::vector<unsigned char>& inputBuffer_,
+DisplayAsci::DisplayAsci(struct buffer& inputBuffer_,
                          unsigned int width_, unsigned int height_) {
   setBuffer(inputBuffer_, width_, height_);
   displayMenu = 0;
@@ -89,7 +92,7 @@ DisplayAsci::DisplayAsci(std::vector<unsigned char>& inputBuffer_,
   cursesInit();
 }
 
-void DisplayAsci::setBuffer(std::vector<unsigned char>& inputBuffer_,
+void DisplayAsci::setBuffer(struct buffer& inputBuffer_,
                             unsigned int width_,
                             unsigned int height_) {
   inputBuffer = &inputBuffer_;
@@ -287,15 +290,15 @@ void DisplayAsci::updateMenu(int keyPress){
 
 void DisplayAsci::update(int keyPress){
   updateMenu(keyPress);
-  unsigned int row_stride = inputBuffer->size() / height;
+  unsigned int row_stride = inputBuffer->length / height;
 
   move(displayMenu * 20, 0);
-  printw("%i, %i %i\n", width, height, inputBuffer->size());
+  printw("%i, %i %i\n", width, height, inputBuffer->length);
   for(unsigned int line = 0; line < height; line += 15){
     for(unsigned int col = 0; col < row_stride; col += 30){
-      int r = (*inputBuffer)[line * row_stride + col];
-      int g = (*inputBuffer)[line * row_stride + col +1];
-      int b = (*inputBuffer)[line * row_stride + col +2];
+      int r = ((uint8_t*)(inputBuffer->start))[line * row_stride + col];
+      int g = ((uint8_t*)(inputBuffer->start))[line * row_stride + col +1];
+      int b = ((uint8_t*)(inputBuffer->start))[line * row_stride + col +2];
 
       int y = (r + g) / 1.9;
       int m = (r + b) / 1.9;
@@ -442,9 +445,13 @@ boolean emptyBuffer(jpeg_compress_struct* cinfo) {
 void init_buffer(jpeg_compress_struct* cinfo) {}
 void term_buffer(jpeg_compress_struct* cinfo) {}
 
-void makeJpeg(std::vector<unsigned char>& inputBuffer,
-              void** outputBuffer, unsigned int& outputBufferLength,
+void makeJpeg(struct buffer& inputBuffer,
+              struct buffer& outputBuffer,
               unsigned int width, unsigned int height) {
+  if(!outputBuffer.length) {
+    outputBuffer.length = width * height * 3;
+    outputBuffer.start = new unsigned uint8_t[outputBuffer.length];
+  }
 
   struct jpeg_compress_struct cinfo;
   struct jpeg_error_mgr       jerr;
@@ -454,8 +461,8 @@ void makeJpeg(std::vector<unsigned char>& inputBuffer,
   dmgr.init_destination    = init_buffer;
   dmgr.empty_output_buffer = emptyBuffer;
   dmgr.term_destination    = term_buffer;
-  dmgr.next_output_byte    = (JOCTET*)(*outputBuffer);
-  dmgr.free_in_buffer      = outputBufferLength;
+  dmgr.next_output_byte    = (JOCTET*)(outputBuffer.start);
+  dmgr.free_in_buffer      = outputBuffer.length;
    
   cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_compress(&cinfo);
@@ -475,7 +482,7 @@ void makeJpeg(std::vector<unsigned char>& inputBuffer,
 
   /* main code to write jpeg data */
   while (cinfo.next_scanline < cinfo.image_height) {    
-    row_pointer = (JSAMPROW) &inputBuffer[cinfo.next_scanline * width * 3];
+    row_pointer = (JSAMPROW) inputBuffer.start + (cinfo.next_scanline * width * 3);
     jpeg_write_scanlines(&cinfo, &row_pointer, 1);
   }
 

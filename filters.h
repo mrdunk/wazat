@@ -12,29 +12,29 @@
 #include <string.h>
 
 /* Blur an image to smooth the detail. */
-void blur(std::vector<unsigned char>& inputBuffer,
+void blur(struct buffer& inputBuffer,
           const int width,
           const int height,
           const int gausKernelSize,
           const double gausSigma);
 
-void getFeatures(std::vector<unsigned char>& inputBuffer,
-                 std::vector<unsigned char>& featureBuffer,
+void getFeatures(struct buffer& inputBuffer,
+                 std::vector<uint8_t>& featureBuffer,
                  const unsigned int width,
                  const unsigned int height,
                  int threshold,
                  int border);
 
-void filterThin(std::vector<unsigned char>& featureBuffer, 
+void filterThin(std::vector<uint8_t>& featureBuffer, 
                 const unsigned int width,
                 const unsigned int height);
 
-void merge(std::vector<unsigned char>& inputBuffer,
-           std::vector<unsigned char>& featureBuffer,
+void merge(struct buffer& inputBuffer,
+           std::vector<uint8_t>& featureBuffer,
            const unsigned int width,
            const unsigned int height);
 
-void filterSmallFeatures(std::vector<unsigned char>& featureBuffer,
+void filterSmallFeatures(std::vector<uint8_t>& featureBuffer,
             const unsigned int width,
             const unsigned int height);
 

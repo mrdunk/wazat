@@ -1,3 +1,6 @@
+#ifndef WAZAT_INPUT_H
+#define WAZAT_INPUT_H
+
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
@@ -94,14 +97,4 @@ class File {
 /* Save a JPEG formatted buffer to disk. */
 void saveJpeg(void* inputBuffer, size_t inputBufferLength);
 
-/* Take a JPEG formatted buffer and convert it to an array of pixel data. */
-void parseJpeg(void* inputBuffer,
-               size_t& inputBufferLength,
-               std::vector<unsigned char>& outputBuffer,
-               unsigned int& width,
-               unsigned int& height);
-
-void parseImage(void* inputBuffer,
-                size_t& inputBufferLength,
-                std::vector<unsigned char>& outputBuffer);
-
+#endif  // WAZAT_INPUT_H

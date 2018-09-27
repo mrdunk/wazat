@@ -140,17 +140,16 @@ void Camera::getImageProperties(){
 
 void Camera::setFormat(){
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  //format.fmt.pix.width = 800;
-  //format.fmt.pix.height = 600;
-  // format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+  format.fmt.pix.width = 800;
+  format.fmt.pix.height = 600;
+  //format.fmt.pix.width = 1280;
+  //format.fmt.pix.height = 720;
+  //format.fmt.pix.width = 1280 / 2;
+  //format.fmt.pix.height = 720 / 2;
   format.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
-  // format.fmt.pix.field       = V4L2_FIELD_INTERLACED;
-  // format.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
-  //
+
   xioctl(fd, VIDIOC_S_FMT, &format);
   if (format.fmt.pix.pixelformat != V4L2_PIX_FMT_RGB24) {
-  //if (format.fmt.pix.pixelformat != V4L2_PIX_FMT_MJPEG &&
-      //format.fmt.pix.pixelformat != V4L2_PIX_FMT_YUYV) {
     std::cout << "Image not in recognised format. Can't proceed." << std::endl;
     std::cout << (char)(format.fmt.pix.pixelformat) << " " <<
                  (char)(format.fmt.pix.pixelformat >> 8) << " " <<
@@ -311,52 +310,5 @@ void File::getImageProperties(){
 
   jpeg_destroy_decompress(&cinfo);
   std::cout << "getImageProperties\t" << width << "," << height << std::endl;
-}
-
-
-void parseJpeg(void* inputBuffer,
-               size_t& inputBufferLength,
-               std::vector<unsigned char>& outputBuffer,
-               unsigned int& width,
-               unsigned int& height) {
-  struct jpeg_decompress_struct cinfo;
-  struct jpeg_error_mgr jerr;
-  cinfo.err = jpeg_std_error(&jerr);
-  jpeg_create_decompress(&cinfo);
-
-  jpeg_mem_src(&cinfo, (unsigned char*)inputBuffer, inputBufferLength);
-
-  jpeg_read_header(&cinfo, TRUE);
-  unsigned int row_stride = cinfo.image_width * cinfo.num_components;
-
-  jpeg_start_decompress(&cinfo);
-
-  width = cinfo.image_width;
-  height = cinfo.image_height;
-
-  unsigned int desiredOutputBufferLen =
-    cinfo.image_width * cinfo.image_height * cinfo.num_components;
-  if(outputBuffer.size() < desiredOutputBufferLen) {
-    outputBuffer.resize(desiredOutputBufferLen);
-  }
-
-  unsigned char* ptr = &outputBuffer.front(); 
-  while (cinfo.output_scanline < cinfo.image_height){
-    jpeg_read_scanlines(&cinfo, &ptr, 1);
-    ptr += row_stride;
-  }
-
-  jpeg_finish_decompress(&cinfo);
-  jpeg_destroy_decompress(&cinfo);
-
-}
-
-void parseImage(void* inputBuffer,
-                size_t& inputBufferLength,
-                std::vector<unsigned char>& outputBuffer) {
-  outputBuffer.clear();
-  for(unsigned int i = 0; i < inputBufferLength; i++){
-    outputBuffer.push_back(((unsigned char*)inputBuffer)[i]);
-  }
 }
 

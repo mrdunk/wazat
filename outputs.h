@@ -12,12 +12,12 @@
 #include <menu.h>
 
 #include "config.h"
+#include "inputs.h"
 
 void errno_exit(const char *s);
 
 class DisplaySdl {
-  void* inputBuffer;
-  unsigned int* inputBufferLength;
+  struct buffer* inputBuffer;
   SDL_Surface* frame;
   SDL_RWops* bufferStream;
   SDL_Surface* screen;
@@ -26,11 +26,11 @@ class DisplaySdl {
   int firstFrameRead;
 
  public:
-  DisplaySdl(void* inputBuffer_, unsigned int* inputBufferLength_);
+  DisplaySdl(struct buffer& inputBuffer_);
 
   ~DisplaySdl();
 
-  void setBuffer(void* inputBuffer_, unsigned int* inputBufferLength_);
+  void setBuffer(struct buffer& inputBuffer_);
 
   int update(int& keyPress);
 
@@ -41,7 +41,7 @@ class DisplaySdl {
 };
 
 class DisplayAsci {
-  std::vector<unsigned char>* inputBuffer;
+  struct buffer* inputBuffer;
   unsigned int width;
   unsigned int height;
   int displayMenu;
@@ -55,10 +55,10 @@ class DisplayAsci {
   int whichMenu;  // Currently selected menu: 0 = main menu. 1 = a sub menu.
 
  public:
-  DisplayAsci(std::vector<unsigned char>& inputBuffer_,
+  DisplayAsci(struct buffer& inputBuffer_,
               unsigned int width_, unsigned int height_);
 
-  void setBuffer(std::vector<unsigned char>& inputBuffer_,
+  void setBuffer(struct buffer& inputBuffer_,
                  unsigned int width_, 
                  unsigned int height_);
 
@@ -76,8 +76,8 @@ class DisplayAsci {
   void prosessSubMenu(int keyPress);
 };
 
-void makeJpeg(std::vector<unsigned char>& inputBuffer,
-              void** outputBuffer, unsigned int& outputBufferLength,
+void makeJpeg(struct buffer& inputBuffer,
+              struct buffer& outputBuffer,
               unsigned int width, unsigned int height);
 
 #endif  // WAZAT_OUTPUT_H
