@@ -140,7 +140,7 @@ void Camera::getImageProperties(){
 
 void Camera::setFormat(){
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  format.fmt.pix.width = 800;
+  format.fmt.pix.width = 1200;
   format.fmt.pix.height = 600;
   //format.fmt.pix.width = 1280;
   //format.fmt.pix.height = 720;

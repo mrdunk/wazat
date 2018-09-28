@@ -290,7 +290,8 @@ void DisplayAsci::updateMenu(int keyPress){
 
 void DisplayAsci::update(int keyPress){
   updateMenu(keyPress);
-  unsigned int row_stride = inputBuffer->length / height;
+  // unsigned int row_stride = inputBuffer->length / height;
+  unsigned int row_stride = width * 3;
 
   move(displayMenu * 20, 0);
   printw("%i, %i %i\n", width, height, inputBuffer->length);
