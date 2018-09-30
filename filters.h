@@ -42,7 +42,7 @@ void filterSmallFeatures(std::vector<uint8_t>& featureBuffer,
             const unsigned int height);
 
 void filterHough(std::vector<uint8_t>& inputBuffer,
-                 std::map<struct polarCoord, uint8_t>&  outputBuffer,
+                 std::map<struct polarCoord, uint8_t>& outputBuffer,
                  const unsigned int width,
                  const unsigned int height);
 

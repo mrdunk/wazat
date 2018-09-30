@@ -86,4 +86,13 @@ int main()
       run = 0;
     }
   }
+
+  if(inputBuffer.length > 0) {
+    delete[] (uint8_t*)inputBuffer.start;
+  }
+  if(outputJpegBuffer.length > 0) {
+    delete[] (uint8_t*)outputJpegBuffer.start;
+  }
+  featureBuffer.clear();
+  houghBuffer.clear();
 }

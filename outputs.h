@@ -25,6 +25,8 @@ class DisplaySdl {
   SDL_Rect position;
   SDL_Event events;
   int firstFrameRead;
+  struct jpeg_decompress_struct cinfo;
+  struct jpeg_error_mgr jerr;
 
  public:
   DisplaySdl(struct buffer& inputBuffer_);

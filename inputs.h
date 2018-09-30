@@ -84,6 +84,7 @@ class File {
   unsigned int height;
 
   File(const char* filename_, struct buffer& buffer_);
+  ~File();
   int grabFrame();
  private:
   void getImageProperties();

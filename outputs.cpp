@@ -12,6 +12,7 @@ DisplaySdl::~DisplaySdl() {
 
 void DisplaySdl::setBuffer(struct buffer& inputBuffer_) {
   inputBuffer = &inputBuffer_;
+  cinfo.err = jpeg_std_error(&jerr);
 }
 
 
@@ -20,11 +21,7 @@ int DisplaySdl::update(int& keyPress){
     return 1;
   }
 
-  struct jpeg_decompress_struct cinfo;
-  struct jpeg_error_mgr jerr;
-  cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_decompress(&cinfo);
-
   jpeg_mem_src(&cinfo, (uint8_t*)inputBuffer->start, inputBuffer->length);
 
   jpeg_read_header(&cinfo, TRUE);
@@ -37,7 +34,7 @@ int DisplaySdl::update(int& keyPress){
   bufferStream = SDL_RWFromMem((uint8_t*)inputBuffer->start, inputBuffer->length);
 
   // Create a surface using the data coming out of the above stream.
-  frame = IMG_Load_RW(bufferStream, 0);
+  frame = IMG_Load_RW(bufferStream, 1);
 
   // Blit the surface and flip the screen.
   SDL_BlitSurface(frame, NULL, screen, &position);
@@ -57,6 +54,8 @@ int DisplaySdl::update(int& keyPress){
         break;
     }
   }
+  SDL_FreeSurface(frame);
+  jpeg_destroy_decompress(&cinfo);
   return 1;
 }
 
@@ -490,6 +489,7 @@ void makeJpeg(struct buffer& inputBuffer,
   }
 
   jpeg_finish_compress(&cinfo);
+  jpeg_destroy_compress(&cinfo);
 }
 
 

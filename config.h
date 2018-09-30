@@ -45,17 +45,13 @@ struct Config {
     {"filterThin",
       nullptr,
       true,
-      {
-        {"test", 1.0, 0.5, 1.0, 2.0}
-      }
+      { }
     };
   ConfigEntry filterSmallFeatures =
     {"filterSmallFeatures",
       nullptr,
       true,
-      {
-        {"test", 1.0, 0.5, 1.0, 2.0}
-      }
+      { }
     };
 };
 

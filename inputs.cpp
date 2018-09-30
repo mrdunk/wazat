@@ -272,6 +272,12 @@ File::File(const char* filename_,
   getImageProperties();
 }
 
+File::~File() {
+  if(internalBuffer.length > 0) {
+    delete[] (uint8_t*)(internalBuffer.start);
+  }
+}
+
 int File::grabFrame() {
   std::ifstream file(filename, std::ios::in|std::ios::binary|std::ios::ate);
   if(file.is_open()) {
