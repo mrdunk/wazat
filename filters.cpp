@@ -1,5 +1,4 @@
 #include "filters.h"
-#include "inputs.h"
 
 typedef std::vector<double> Array;
 typedef std::vector<Array> Matrix;
@@ -38,7 +37,9 @@ void blur(struct buffer& inputBuffer,
           const int gausKernelSize,
           const double gausSigma) {
   static struct buffer tmpBuffer = {0};
-  if(tmpBuffer.length != inputBuffer.length) {
+  if(tmpBuffer.length < inputBuffer.length) {
+    std::cout << "blur() resize tmpBuffer: " <<
+      tmpBuffer.length << " : " << inputBuffer.length << std::endl;
     delete[] (uint8_t*)tmpBuffer.start;
     tmpBuffer.length = inputBuffer.length;
     tmpBuffer.start = new uint8_t[inputBuffer.length];
@@ -70,8 +71,6 @@ void blur(struct buffer& inputBuffer,
             //assert(address >= 0);
             //assert(address < width * height * 3);
 
-            //tmpBuffer.start[y * width * 3 + x + c] += inputBuffer[address] / 9;
-
             ((uint8_t*)tmpBuffer.start)[y * width * 3 + x + c] +=
               k[kx + radius][ky + radius] * ((uint8_t*)inputBuffer.start)[address];
           }
@@ -94,8 +93,8 @@ void getFeatures(struct buffer& inputBuffer,
                  int border) {
 
   featureBuffer.clear(); 
-  if(featureBuffer.size() < inputBuffer.length) {
-    featureBuffer.resize(inputBuffer.length);
+  if(featureBuffer.size() < inputBuffer.length / 3) {
+    featureBuffer.resize(inputBuffer.length / 3);
   }
   
   for(unsigned int x = border; x < width -border; x++) {
@@ -205,17 +204,17 @@ void filterThin(std::vector<uint8_t>& featureBuffer,
   }
 }
 
-void merge(struct buffer& inputBuffer,
+void merge(struct buffer& finalBuffer,
            std::vector<uint8_t>& featureBuffer,
            const unsigned int width,
            const unsigned int height) {
-  assert(width * height * 3 <= featureBuffer.size());
+  assert(width * height <= featureBuffer.size());
   for(unsigned int x = 0; x < width; x++) {
     for(unsigned int y = 0; y < height; y++) {
       if(featureBuffer[x + y * width]) {
-        ((uint8_t*)inputBuffer.start)[(x + y * width) * 3 + 0] = 255;
-        ((uint8_t*)inputBuffer.start)[(x + y * width) * 3 + 1] = 255;
-        ((uint8_t*)inputBuffer.start)[(x + y * width) * 3 + 2] = 255;
+        ((uint8_t*)finalBuffer.start)[(x + y * width) * 3 + 0] = 255;
+        ((uint8_t*)finalBuffer.start)[(x + y * width) * 3 + 1] = 255;
+        ((uint8_t*)finalBuffer.start)[(x + y * width) * 3 + 2] = 255;
       }
     }
   }
@@ -271,3 +270,54 @@ void filterSmallFeatures(std::vector<uint8_t>& featureBuffer,
     }
   }
 }
+
+void filterHough(std::vector<uint8_t>& inputBuffer,
+                 std::map<struct polarCoord, uint8_t>& outputBuffer,
+                 const unsigned int width,
+                 const unsigned int height) {
+  std::map<struct polarCoord, uint8_t>::iterator value;
+
+  outputBuffer.clear();
+
+  for(unsigned int x = 10; x < width -10; x++) {
+    for(unsigned int y = 10; y < height -10; y++) {
+      if(inputBuffer[x + y * width]) {
+        for(double a = 0; a < 180; a++) {
+          int r = x * cos(M_PI * a / 180) + y * sin(M_PI * a / 180);
+          struct polarCoord c = { (uint8_t)a, r };
+
+          value = outputBuffer.find(c);
+          if(value == outputBuffer.end()) {
+            outputBuffer[c] = 1;
+          } else {
+            value->second++;
+          }
+        }
+      }
+    }
+  }
+  // std::cout << " " << outputBuffer.size() << std::endl;
+}
+
+void mergeHough(struct buffer& finalBuffer,
+                std::map<struct polarCoord, uint8_t>& houghBuffer,
+                const unsigned int width,
+                const unsigned int height) {
+  for(std::map<struct polarCoord, uint8_t>::iterator it = houghBuffer.begin();
+      it != houghBuffer.end();
+      it++) {
+    if(it->second > 20) {
+      uint8_t a = it->first.a;
+      int r = it->first.r;
+      unsigned int xStart = cos(M_PI * a / 180) * r;
+      unsigned int yStart = sin(M_PI * a / 180) * r;
+      if(xStart >= 0 && yStart >= 0 && xStart < width && yStart < height) {
+        ((uint8_t*)finalBuffer.start)[(xStart + yStart * width) * 3 + 0] = 255;
+        ((uint8_t*)finalBuffer.start)[(xStart + yStart * width) * 3 + 1] = 255;
+        //((uint8_t*)finalBuffer.start)[(xStart + yStart * width) * 3 + 2] = 255;
+      }
+    }
+  }
+}
+
+

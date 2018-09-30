@@ -10,9 +10,10 @@
 #include <jpeglib.h>
 #include <curses.h>
 #include <menu.h>
+#include <assert.h>
 
 #include "config.h"
-#include "inputs.h"
+#include "types.h"
 
 void errno_exit(const char *s);
 

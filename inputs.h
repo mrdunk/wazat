@@ -21,15 +21,12 @@
 #include <linux/videodev2.h>
 #include <libv4l2.h>
 
+#include "types.h"
+
 enum IoMethod {
         IO_METHOD_READ,
         IO_METHOD_MMAP_SINGLE,
         IO_METHOD_MMAP_DOUBLE,
-};
-
-struct buffer {
-  void   *start;
-  size_t length;
 };
 
 void errno_exit(const char *s);
@@ -79,18 +76,21 @@ class Camera {
 
 class File {
   const char* filename;
-  void** buffer;
-  size_t* bufferLength;
+  struct buffer internalBuffer;
+  struct buffer* externalBuffer;
 
  public:
   unsigned int width;
   unsigned int height;
 
-  File(const char* filename_, void** buffer_, size_t* bufferLength_);
-  ~File();
+  File(const char* filename_, struct buffer& buffer_);
   int grabFrame();
  private:
   void getImageProperties();
+  void parseJpeg(struct buffer* inputBuffer,
+                 struct buffer* outputBuffer,
+                 unsigned int& width,
+                 unsigned int& height);
 };
 
 

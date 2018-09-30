@@ -12,7 +12,7 @@ struct ConfigEntryValue {
   double modSize;
   double min;
   double max;
-  char valueString[20];
+  char valueString[40];
 };
 
 struct ConfigEntry {
@@ -42,9 +42,21 @@ struct Config {
       }
     };
   ConfigEntry filterThin =
-    {"filterThin", nullptr, true, {}};
+    {"filterThin",
+      nullptr,
+      true,
+      {
+        {"test", 1.0, 0.5, 1.0, 2.0}
+      }
+    };
   ConfigEntry filterSmallFeatures =
-    {"filterSmallFeatures", nullptr, true, {}};
+    {"filterSmallFeatures",
+      nullptr,
+      true,
+      {
+        {"test", 1.0, 0.5, 1.0, 2.0}
+      }
+    };
 };
 
 extern Config config;

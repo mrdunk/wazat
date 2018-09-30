@@ -264,44 +264,44 @@ void Camera::prepareBuffer(){
 
 
 File::File(const char* filename_,
-           void** buffer_,
-           size_t* bufferLength_) : 
+           struct buffer& buffer_) :
               filename(filename_),
-              buffer(buffer_),
-              bufferLength(bufferLength_){
+              externalBuffer(&buffer_) {
+  internalBuffer.start = nullptr;
+  internalBuffer.length = 0;
   getImageProperties();
-}
-
-File::~File() {
-  delete[] (char*)(*buffer);
 }
 
 int File::grabFrame() {
   std::ifstream file(filename, std::ios::in|std::ios::binary|std::ios::ate);
   if(file.is_open()) {
     std::streampos size = file.tellg();
-    if((unsigned long)size > *bufferLength) {
-      delete[] (char*)(*buffer);
-      *buffer = new char[size];
-      *bufferLength = size;
+    if((unsigned long)size > internalBuffer.length) {
+      std::cout << "File::grabFrame resize internalBuffer: " <<
+        internalBuffer.length << " : " << size << std::endl;
+      delete[] (uint8_t*)(internalBuffer.start);
+      internalBuffer.start = new uint8_t[size];
+      internalBuffer.length = size;
     }
     file.seekg (0, std::ios::beg);
-    file.read ((char*)(*buffer), size);
+    file.read (((char*)internalBuffer.start), size);
     file.close();
-    return size;
+
+    parseJpeg(&internalBuffer, externalBuffer, width, height);
+    return externalBuffer->length;
   }
   std::cout << "Could not read file: " << filename << std::endl;
   return -1;
 }
 
 void File::getImageProperties(){
-  grabFrame();
+  size_t size = grabFrame();
 
   struct jpeg_decompress_struct cinfo;
   struct jpeg_error_mgr jerr;
   cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_decompress(&cinfo);
-  jpeg_mem_src(&cinfo, (unsigned char*)(*buffer), *bufferLength);
+  jpeg_mem_src(&cinfo, (unsigned char*)(internalBuffer.start), internalBuffer.length);
   jpeg_read_header(&cinfo, TRUE);
   jpeg_calc_output_dimensions(&cinfo);
 
@@ -310,5 +310,44 @@ void File::getImageProperties(){
 
   jpeg_destroy_decompress(&cinfo);
   std::cout << "getImageProperties\t" << width << "," << height << std::endl;
+  assert(size >= width * height * 3);
 }
 
+void File::parseJpeg(struct buffer* inputBuffer,
+                     struct buffer* outputBuffer,
+                     unsigned int& width,
+                     unsigned int& height) {
+  struct jpeg_decompress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_decompress(&cinfo);
+
+  jpeg_mem_src(&cinfo, (uint8_t*)inputBuffer->start, inputBuffer->length);
+
+  jpeg_read_header(&cinfo, TRUE);
+  unsigned int row_stride = cinfo.image_width * cinfo.num_components;
+
+  jpeg_start_decompress(&cinfo);
+
+  width = cinfo.image_width;
+  height = cinfo.image_height;
+
+  unsigned int desiredOutputBufferLen =
+    cinfo.image_width * cinfo.image_height * cinfo.num_components;
+  if(outputBuffer->length < desiredOutputBufferLen) {
+    std::cout << "File::parseJpeg resize outputBuffer: " << outputBuffer->length <<
+      " : " << desiredOutputBufferLen << std::endl;
+    delete[] (uint8_t*)outputBuffer->start;
+    outputBuffer->start = new uint8_t[desiredOutputBufferLen];
+    outputBuffer->length = desiredOutputBufferLen;
+  }
+
+  uint8_t* ptr = ((uint8_t*)outputBuffer->start);
+  while (cinfo.output_scanline < cinfo.image_height){
+    jpeg_read_scanlines(&cinfo, &ptr, 1);
+    ptr += row_stride;
+  }
+
+  jpeg_finish_decompress(&cinfo);
+  jpeg_destroy_decompress(&cinfo);
+}

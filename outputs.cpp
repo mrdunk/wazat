@@ -28,7 +28,6 @@ int DisplaySdl::update(int& keyPress){
   jpeg_mem_src(&cinfo, (uint8_t*)inputBuffer->start, inputBuffer->length);
 
   jpeg_read_header(&cinfo, TRUE);
-  // std::cout << cinfo.image_width << "," << cinfo.image_height << "," << cinfo.num_components << "\n";
   if(! firstFrameRead) {
     firstFrameRead = 1;
     displayInit(cinfo.image_width, cinfo.image_height);
@@ -449,9 +448,12 @@ void term_buffer(jpeg_compress_struct* cinfo) {}
 void makeJpeg(struct buffer& inputBuffer,
               struct buffer& outputBuffer,
               unsigned int width, unsigned int height) {
-  if(!outputBuffer.length) {
+  if(outputBuffer.length < width * height * 3) {
+    std::cout << "makeJpeg() resize outputBuffer: " <<
+      outputBuffer.length << " : " << width * height * 3 << std::endl;
+    delete[] (uint8_t*)outputBuffer.start;
     outputBuffer.length = width * height * 3;
-    outputBuffer.start = new unsigned uint8_t[outputBuffer.length];
+    outputBuffer.start = new uint8_t[outputBuffer.length];
   }
 
   struct jpeg_compress_struct cinfo;

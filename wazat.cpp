@@ -2,10 +2,11 @@
 #include "outputs.h"
 #include "filters.h"
 #include "config.h"
+#include "types.h"
 
 /* http://jwhsmith.net/2014/12/capturing-a-webcam-stream-using-v4l2/ 
  *
- * sudo apt install libjpeg-dev libsdl1.2-dev libsdl-image1.2-dev libv4l2-dev
+ * sudo apt install libjpeg-dev libsdl1.2-dev libsdl-image1.2-dev libv4l-dev
  *
  * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -lv4l2 -O3
  * */
@@ -13,20 +14,21 @@
 
 int main()
 {
-  int keyPress;
+  int keyPress = 0;
   int run = 1;
   struct buffer inputBuffer = {0};
   struct buffer outputJpegBuffer = {0};
   std::vector<uint8_t> featureBuffer;
+  std::map<struct polarCoord, uint8_t> houghBuffer;
 
-	const char* deviceName = "/dev/video0";
+	/*const char* deviceName = "/dev/video0";
   Camera inputDevice(deviceName,
                      IO_METHOD_MMAP_SINGLE,
                      &(inputBuffer.start),
-                     &(inputBuffer.length));
-  /*File inputDevice("testData/im1small.jpg",
-                   &inputBuffer,
-                   &inputBufferLength);*/
+                     &(inputBuffer.length));*/
+  // const char* filename = "testData/im1small.jpg";
+  const char* filename = "testData/CHECKERBOARD.jpg";
+  File inputDevice(filename, inputBuffer);
   
   DisplaySdl displayProcessed(outputJpegBuffer);
   DisplayAsci displayParsed(inputBuffer,
@@ -62,14 +64,21 @@ int main()
     if(config.filterSmallFeatures.enabled){
       filterSmallFeatures(featureBuffer, inputDevice.width, inputDevice.height);
     }
+    filterHough(featureBuffer, houghBuffer, inputDevice.width, inputDevice.height);
+    memset(inputBuffer.start, 0, inputBuffer.length);
     merge(inputBuffer,
           featureBuffer,
+          inputDevice.width,
+          inputDevice.height);
+    mergeHough(inputBuffer,
+          houghBuffer,
           inputDevice.width,
           inputDevice.height);
 
     makeJpeg(inputBuffer,
              outputJpegBuffer,
-             inputDevice.width, inputDevice.height);
+             inputDevice.width,
+             inputDevice.height);
 
     keyPress = getch();
     run &= displayProcessed.update(keyPress);
@@ -77,6 +86,4 @@ int main()
       run = 0;
     }
   }
-
-  delete[] (uint8_t*)outputJpegBuffer.start;
 }
