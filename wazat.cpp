@@ -11,24 +11,31 @@
  * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -lv4l2 -O3
  * */
 
+#define CAMERA
 
 int main()
 {
   int keyPress = 0;
   int run = 1;
-  struct buffer inputBuffer = {0};
-  struct buffer outputJpegBuffer = {0};
+  struct buffer<uint8_t> inputBuffer = {0};
+  struct buffer<uint8_t> outputJpegBuffer = {0};
   std::vector<uint8_t> featureBuffer;
-  std::map<struct polarCoord, uint8_t> houghBuffer;
+  //std::map<struct polarCoord, uint8_t> houghBuffer;
+  struct buffer<uint16_t> houghBuffer = {0};
 
-	/*const char* deviceName = "/dev/video0";
+  #ifdef CAMERA
+	const char* deviceName = "/dev/video0";
   Camera inputDevice(deviceName,
                      IO_METHOD_MMAP_SINGLE,
-                     &(inputBuffer.start),
-                     &(inputBuffer.length));*/
+                     (void**)(&(inputBuffer.start)),
+                     &(inputBuffer.length));
+  #else
   // const char* filename = "testData/im1small.jpg";
-  const char* filename = "testData/CHECKERBOARD.jpg";
+  // const char* filename = "testData/CHECKERBOARD.jpg";
+  // const char* filename = "testData/310FlbGm2qL.jpg";
+  const char* filename = "testData/CountingTriangles.jpg";
   File inputDevice(filename, inputBuffer);
+  #endif
   
   DisplaySdl displayProcessed(outputJpegBuffer);
   DisplayAsci displayParsed(inputBuffer,
@@ -87,12 +94,10 @@ int main()
     }
   }
 
-  if(inputBuffer.length > 0) {
-    delete[] (uint8_t*)inputBuffer.start;
-  }
-  if(outputJpegBuffer.length > 0) {
-    delete[] (uint8_t*)outputJpegBuffer.start;
-  }
+  #ifndef CAMERA
+  inputBuffer.destroy();
+  #endif
+  outputJpegBuffer.destroy();
+  houghBuffer.destroy();
   featureBuffer.clear();
-  houghBuffer.clear();
 }

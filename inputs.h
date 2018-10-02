@@ -40,7 +40,7 @@ class Camera {
   unsigned int numBuffers;
   void** cameraBuffer;
   size_t* bufferLength;
-  struct buffer buffers[2];
+  struct buffer<uint8_t> buffers[2];
 	struct v4l2_format format;
   struct v4l2_buffer bufferinfo;
   int imageformat;
@@ -76,20 +76,20 @@ class Camera {
 
 class File {
   const char* filename;
-  struct buffer internalBuffer;
-  struct buffer* externalBuffer;
+  struct buffer<uint8_t> internalBuffer;
+  struct buffer<uint8_t>* externalBuffer;
 
  public:
   unsigned int width;
   unsigned int height;
 
-  File(const char* filename_, struct buffer& buffer_);
+  File(const char* filename_, struct buffer<uint8_t>& buffer_);
   ~File();
   int grabFrame();
  private:
   void getImageProperties();
-  void parseJpeg(struct buffer* inputBuffer,
-                 struct buffer* outputBuffer,
+  void parseJpeg(struct buffer<uint8_t>* inputBuffer,
+                 struct buffer<uint8_t>* outputBuffer,
                  unsigned int& width,
                  unsigned int& height);
 };

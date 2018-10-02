@@ -1,7 +1,7 @@
 #include "outputs.h"
 #include "config.h"
 
-DisplaySdl::DisplaySdl(struct buffer& inputBuffer_) {
+DisplaySdl::DisplaySdl(struct buffer<uint8_t>& inputBuffer_) {
   firstFrameRead = 0;
   setBuffer(inputBuffer_);
 }
@@ -10,7 +10,7 @@ DisplaySdl::~DisplaySdl() {
   displayCleanup();
 }
 
-void DisplaySdl::setBuffer(struct buffer& inputBuffer_) {
+void DisplaySdl::setBuffer(struct buffer<uint8_t>& inputBuffer_) {
   inputBuffer = &inputBuffer_;
   cinfo.err = jpeg_std_error(&jerr);
 }
@@ -55,6 +55,7 @@ int DisplaySdl::update(int& keyPress){
     }
   }
   SDL_FreeSurface(frame);
+  frame = nullptr;
   jpeg_destroy_decompress(&cinfo);
   return 1;
 }
@@ -73,15 +74,14 @@ void DisplaySdl::displayInit(int width, int height){
 
 void DisplaySdl::displayCleanup(){
   // Free everything, and unload SDL & Co.
-  SDL_FreeSurface(frame);
-  if(firstFrameRead) {
-    SDL_RWclose(bufferStream);
+  if(frame != nullptr) {
+    SDL_FreeSurface(frame);
   }
   IMG_Quit();
   SDL_Quit();
 }
 
-DisplayAsci::DisplayAsci(struct buffer& inputBuffer_,
+DisplayAsci::DisplayAsci(struct buffer<uint8_t>& inputBuffer_,
                          unsigned int width_, unsigned int height_) {
   setBuffer(inputBuffer_, width_, height_);
   displayMenu = 0;
@@ -90,7 +90,7 @@ DisplayAsci::DisplayAsci(struct buffer& inputBuffer_,
   cursesInit();
 }
 
-void DisplayAsci::setBuffer(struct buffer& inputBuffer_,
+void DisplayAsci::setBuffer(struct buffer<uint8_t>& inputBuffer_,
                             unsigned int width_,
                             unsigned int height_) {
   inputBuffer = &inputBuffer_;
@@ -444,20 +444,14 @@ boolean emptyBuffer(jpeg_compress_struct* cinfo) {
 void init_buffer(jpeg_compress_struct* cinfo) {}
 void term_buffer(jpeg_compress_struct* cinfo) {}
 
-void makeJpeg(struct buffer& inputBuffer,
-              struct buffer& outputBuffer,
+void makeJpeg(struct buffer<uint8_t>& inputBuffer,
+              struct buffer<uint8_t>& outputBuffer,
               unsigned int width, unsigned int height) {
-  if(outputBuffer.length < width * height * 3) {
-    std::cout << "makeJpeg() resize outputBuffer: " <<
-      outputBuffer.length << " : " << width * height * 3 << std::endl;
-    delete[] (uint8_t*)outputBuffer.start;
-    outputBuffer.length = width * height * 3;
-    outputBuffer.start = new uint8_t[outputBuffer.length];
-  }
+  outputBuffer.resize(width * height * 3);
 
-  struct jpeg_compress_struct cinfo;
-  struct jpeg_error_mgr       jerr;
-  struct jpeg_destination_mgr dmgr;
+  struct jpeg_compress_struct cinfo = {0};
+  struct jpeg_error_mgr       jerr = {0};
+  struct jpeg_destination_mgr dmgr = {0};
 
   /* Set up output buffer. */
   dmgr.init_destination    = init_buffer;
@@ -469,7 +463,7 @@ void makeJpeg(struct buffer& inputBuffer,
   cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_compress(&cinfo);
   
-  cinfo.dest = &dmgr;
+  cinfo.dest             = &dmgr;
   cinfo.image_width      = width;
   cinfo.image_height     = height;
   cinfo.input_components = 3;
@@ -480,7 +474,7 @@ void makeJpeg(struct buffer& inputBuffer,
   jpeg_set_quality (&cinfo, 100, true);
   jpeg_start_compress(&cinfo, true);
 
-  JSAMPROW row_pointer;
+  JSAMPROW row_pointer = {0};
 
   /* main code to write jpeg data */
   while (cinfo.next_scanline < cinfo.image_height) {    

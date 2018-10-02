@@ -31,20 +31,13 @@ Matrix getGaussian(const int size, const double sigma) {
   return kernel;
 }
 
-void blur(struct buffer& inputBuffer,
+void blur(struct buffer<uint8_t>& inputBuffer,
           const int width,
           const int height,
           const int gausKernelSize,
           const double gausSigma) {
-  static struct buffer tmpBuffer = {0};
-  if(tmpBuffer.length < inputBuffer.length) {
-    std::cout << "blur() resize tmpBuffer: " <<
-      tmpBuffer.length << " : " << inputBuffer.length << std::endl;
-    delete[] (uint8_t*)tmpBuffer.start;
-    tmpBuffer.length = inputBuffer.length;
-    tmpBuffer.start = new uint8_t[inputBuffer.length];
-  }
-  //memset(tmpBuffer.start, 0, tmpBuffer.length);
+  static struct buffer<uint8_t> tmpBuffer = {0};
+  tmpBuffer.resize(inputBuffer.length);
 
   const int radius = (gausKernelSize - 1) / 2;
   static Matrix k = getGaussian(gausKernelSize, gausSigma);
@@ -85,7 +78,7 @@ void blur(struct buffer& inputBuffer,
   //std::swap(tmpBuffer.start, inputBuffer.start);
 }
 
-void getFeatures(struct buffer& inputBuffer,
+void getFeatures(struct buffer<uint8_t>& inputBuffer,
                  std::vector<uint8_t>& featureBuffer,
                  const unsigned int width,
                  const unsigned int height,
@@ -204,7 +197,7 @@ void filterThin(std::vector<uint8_t>& featureBuffer,
   }
 }
 
-void merge(struct buffer& finalBuffer,
+void merge(struct buffer<uint8_t>& finalBuffer,
            std::vector<uint8_t>& featureBuffer,
            const unsigned int width,
            const unsigned int height) {
@@ -272,49 +265,74 @@ void filterSmallFeatures(std::vector<uint8_t>& featureBuffer,
 }
 
 void filterHough(std::vector<uint8_t>& inputBuffer,
-                 std::map<struct polarCoord, uint8_t>& outputBuffer,
+                 struct buffer<uint16_t>& outputBuffer,
                  const unsigned int width,
                  const unsigned int height) {
-  std::map<struct polarCoord, uint8_t>::iterator value;
+  const int16_t maxLineLen = sqrt(width * width + height * height);
 
-  outputBuffer.clear();
+  static struct buffer<uint16_t> tmpBuffer = {0};
+  tmpBuffer.resize(2 * maxLineLen * 360);
+  tmpBuffer.clear();
+  
+  outputBuffer.resize(2 * maxLineLen * 360);
 
   for(unsigned int x = 10; x < width -10; x++) {
     for(unsigned int y = 10; y < height -10; y++) {
       if(inputBuffer[x + y * width]) {
-        for(double a = 0; a < 180; a++) {
+        for(int16_t a = -180; a < 180; a++) {
           int r = x * cos(M_PI * a / 180) + y * sin(M_PI * a / 180);
-          struct polarCoord c = { (uint8_t)a, r };
-
-          value = outputBuffer.find(c);
-          if(value == outputBuffer.end()) {
-            outputBuffer[c] = 1;
-          } else {
-            value->second++;
+          int rOffset = r + maxLineLen;
+          int16_t aOffset = a + 180;
+          if(r < -maxLineLen || r >= maxLineLen) {
+            std::cout << r << std::endl;
+            assert(0);
+          }
+          uint16_t* value = &(tmpBuffer.start[rOffset * 360 + aOffset]);
+          if(*value < 0xffff -1) {
+            (*value)++;
           }
         }
       }
     }
   }
-  // std::cout << " " << outputBuffer.size() << std::endl;
+
+
+  for(int rOffset = 0; rOffset < 2 * maxLineLen; rOffset++) {
+    uint16_t* lastValue = nullptr;
+    for(int16_t aOffset = 1; aOffset < 360; aOffset++) {
+
+      uint16_t* value = &(tmpBuffer.start[rOffset * 360 + aOffset]);
+      if(lastValue && *lastValue > 70 && *lastValue > *value) {
+        outputBuffer.start[rOffset * 360 + aOffset -1] = 1;
+      } else {
+        outputBuffer.start[rOffset * 360 + aOffset -1] = 0;
+      }
+      lastValue = value;
+    }
+  }
 }
 
-void mergeHough(struct buffer& finalBuffer,
-                std::map<struct polarCoord, uint8_t>& houghBuffer,
+void mergeHough(struct buffer<uint8_t>& finalBuffer,
+                struct buffer<uint16_t>& houghBuffer,
                 const unsigned int width,
                 const unsigned int height) {
-  for(std::map<struct polarCoord, uint8_t>::iterator it = houghBuffer.begin();
-      it != houghBuffer.end();
-      it++) {
-    if(it->second > 20) {
-      uint8_t a = it->first.a;
-      int r = it->first.r;
-      unsigned int xStart = cos(M_PI * a / 180) * r;
-      unsigned int yStart = sin(M_PI * a / 180) * r;
-      if(xStart >= 0 && yStart >= 0 && xStart < width && yStart < height) {
-        ((uint8_t*)finalBuffer.start)[(xStart + yStart * width) * 3 + 0] = 255;
-        ((uint8_t*)finalBuffer.start)[(xStart + yStart * width) * 3 + 1] = 255;
-        //((uint8_t*)finalBuffer.start)[(xStart + yStart * width) * 3 + 2] = 255;
+  const int16_t maxLineLen = sqrt(width * width + height * height);
+  for(size_t aOffset = 0; aOffset < 360; aOffset++) {
+    for(int rOffset = 0; rOffset < 2 * maxLineLen; rOffset++) {
+      if(houghBuffer.start[rOffset * 360 + aOffset] > 0) {
+        int16_t a = aOffset - 180;
+        int r = rOffset - maxLineLen;
+        int xStart = cos(M_PI * a / 180) * r;
+        int yStart = sin(M_PI * a / 180) * r;
+        for(int16_t l = -maxLineLen; l < maxLineLen; l++) {
+          uint16_t x = xStart + l * cos(M_PI * (a - 90) / 180);
+          uint16_t y = yStart + l * sin(M_PI * (a - 90) / 180);
+          if(x < width && y < height) {
+            finalBuffer.start[(x + y * width) * 3 + 0] = 0;
+            finalBuffer.start[(x + y * width) * 3 + 1] = 255;
+            finalBuffer.start[(x + y * width) * 3 + 2] = 255;
+          }
+        }
       }
     }
   }

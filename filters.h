@@ -15,13 +15,13 @@
 #include "types.h"
 
 /* Blur an image to smooth the detail. */
-void blur(struct buffer& inputBuffer,
+void blur(struct buffer<uint8_t>& inputBuffer,
           const int width,
           const int height,
           const int gausKernelSize,
           const double gausSigma);
 
-void getFeatures(struct buffer& inputBuffer,
+void getFeatures(struct buffer<uint8_t>& inputBuffer,
                  std::vector<uint8_t>& featureBuffer,
                  const unsigned int width,
                  const unsigned int height,
@@ -32,7 +32,7 @@ void filterThin(std::vector<uint8_t>& featureBuffer,
                 const unsigned int width,
                 const unsigned int height);
 
-void merge(struct buffer& finalBuffer,
+void merge(struct buffer<uint8_t>& finalBuffer,
            std::vector<uint8_t>& featureBuffer,
            const unsigned int width,
            const unsigned int height);
@@ -42,12 +42,12 @@ void filterSmallFeatures(std::vector<uint8_t>& featureBuffer,
             const unsigned int height);
 
 void filterHough(std::vector<uint8_t>& inputBuffer,
-                 std::map<struct polarCoord, uint8_t>& outputBuffer,
+                 struct buffer<uint16_t>& outputBuffer,
                  const unsigned int width,
                  const unsigned int height);
 
-void mergeHough(struct buffer& finalBuffer,
-                std::map<struct polarCoord, uint8_t>& houghBuffer,
+void mergeHough(struct buffer<uint8_t>& finalBuffer,
+                struct buffer<uint16_t>& outputBuffer,
                 const unsigned int width,
                 const unsigned int height);
 

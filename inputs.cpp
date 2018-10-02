@@ -139,6 +139,7 @@ void Camera::getImageProperties(){
 }
 
 void Camera::setFormat(){
+  memset(&format, 0, sizeof(struct v4l2_format));
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   format.fmt.pix.width = 1200;
   format.fmt.pix.height = 600;
@@ -237,7 +238,7 @@ void Camera::initMmap(unsigned int numBuffers_) {
     xioctl(fd, VIDIOC_QUERYBUF, &bufferinfo);
 
     buffers[numBuffers].length = bufferinfo.length;
-    buffers[numBuffers].start = v4l2_mmap(NULL, bufferinfo.length,
+    buffers[numBuffers].start = (uint8_t*)v4l2_mmap(NULL, bufferinfo.length,
         PROT_READ | PROT_WRITE, MAP_SHARED,
         fd, bufferinfo.m.offset);
 
@@ -264,7 +265,7 @@ void Camera::prepareBuffer(){
 
 
 File::File(const char* filename_,
-           struct buffer& buffer_) :
+           struct buffer<uint8_t>& buffer_) :
               filename(filename_),
               externalBuffer(&buffer_) {
   internalBuffer.start = nullptr;
@@ -274,6 +275,7 @@ File::File(const char* filename_,
 
 File::~File() {
   if(internalBuffer.length > 0) {
+    internalBuffer.length = 0;
     delete[] (uint8_t*)(internalBuffer.start);
   }
 }
@@ -282,13 +284,8 @@ int File::grabFrame() {
   std::ifstream file(filename, std::ios::in|std::ios::binary|std::ios::ate);
   if(file.is_open()) {
     std::streampos size = file.tellg();
-    if((unsigned long)size > internalBuffer.length) {
-      std::cout << "File::grabFrame resize internalBuffer: " <<
-        internalBuffer.length << " : " << size << std::endl;
-      delete[] (uint8_t*)(internalBuffer.start);
-      internalBuffer.start = new uint8_t[size];
-      internalBuffer.length = size;
-    }
+    internalBuffer.resize(size);
+
     file.seekg (0, std::ios::beg);
     file.read (((char*)internalBuffer.start), size);
     file.close();
@@ -319,8 +316,8 @@ void File::getImageProperties(){
   assert(size >= width * height * 3);
 }
 
-void File::parseJpeg(struct buffer* inputBuffer,
-                     struct buffer* outputBuffer,
+void File::parseJpeg(struct buffer<uint8_t>* inputBuffer,
+                     struct buffer<uint8_t>* outputBuffer,
                      unsigned int& width,
                      unsigned int& height) {
   struct jpeg_decompress_struct cinfo;
@@ -340,13 +337,7 @@ void File::parseJpeg(struct buffer* inputBuffer,
 
   unsigned int desiredOutputBufferLen =
     cinfo.image_width * cinfo.image_height * cinfo.num_components;
-  if(outputBuffer->length < desiredOutputBufferLen) {
-    std::cout << "File::parseJpeg resize outputBuffer: " << outputBuffer->length <<
-      " : " << desiredOutputBufferLen << std::endl;
-    delete[] (uint8_t*)outputBuffer->start;
-    outputBuffer->start = new uint8_t[desiredOutputBufferLen];
-    outputBuffer->length = desiredOutputBufferLen;
-  }
+  outputBuffer->resize(desiredOutputBufferLen);
 
   uint8_t* ptr = ((uint8_t*)outputBuffer->start);
   while (cinfo.output_scanline < cinfo.image_height){

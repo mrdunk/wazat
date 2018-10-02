@@ -18,7 +18,7 @@
 void errno_exit(const char *s);
 
 class DisplaySdl {
-  struct buffer* inputBuffer;
+  struct buffer<uint8_t>* inputBuffer;
   SDL_Surface* frame;
   SDL_RWops* bufferStream;
   SDL_Surface* screen;
@@ -29,11 +29,11 @@ class DisplaySdl {
   struct jpeg_error_mgr jerr;
 
  public:
-  DisplaySdl(struct buffer& inputBuffer_);
+  DisplaySdl(struct buffer<uint8_t>& inputBuffer_);
 
   ~DisplaySdl();
 
-  void setBuffer(struct buffer& inputBuffer_);
+  void setBuffer(struct buffer<uint8_t>& inputBuffer_);
 
   int update(int& keyPress);
 
@@ -44,7 +44,7 @@ class DisplaySdl {
 };
 
 class DisplayAsci {
-  struct buffer* inputBuffer;
+  struct buffer<uint8_t>* inputBuffer;
   unsigned int width;
   unsigned int height;
   int displayMenu;
@@ -58,10 +58,10 @@ class DisplayAsci {
   int whichMenu;  // Currently selected menu: 0 = main menu. 1 = a sub menu.
 
  public:
-  DisplayAsci(struct buffer& inputBuffer_,
+  DisplayAsci(struct buffer<uint8_t>& inputBuffer_,
               unsigned int width_, unsigned int height_);
 
-  void setBuffer(struct buffer& inputBuffer_,
+  void setBuffer(struct buffer<uint8_t>& inputBuffer_,
                  unsigned int width_, 
                  unsigned int height_);
 
@@ -79,8 +79,8 @@ class DisplayAsci {
   void prosessSubMenu(int keyPress);
 };
 
-void makeJpeg(struct buffer& inputBuffer,
-              struct buffer& outputBuffer,
+void makeJpeg(struct buffer<uint8_t>& inputBuffer,
+              struct buffer<uint8_t>& outputBuffer,
               unsigned int width, unsigned int height);
 
 #endif  // WAZAT_OUTPUT_H
