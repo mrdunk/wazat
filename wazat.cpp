@@ -11,7 +11,7 @@
  * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -lv4l2 -O3
  * */
 
-#define CAMERA
+// #define CAMERA
 
 int main()
 {
@@ -72,6 +72,16 @@ int main()
       filterSmallFeatures(featureBuffer, inputDevice.width, inputDevice.height);
     }
     filterHough(featureBuffer, houghBuffer, inputDevice.width, inputDevice.height);
+
+    for(size_t dilateCount = 0; dilateCount < config.hough.values[1].value; dilateCount++) {
+      dilateHough(houghBuffer, inputDevice.width, inputDevice.height);
+    }
+    
+    while(erodeHough(houghBuffer,
+                     inputDevice.width,
+                     inputDevice.height,
+                     config.hough.values[0].value));
+
     memset(inputBuffer.start, 0, inputBuffer.length);
     merge(inputBuffer,
           featureBuffer,
@@ -80,7 +90,8 @@ int main()
     mergeHough(inputBuffer,
           houghBuffer,
           inputDevice.width,
-          inputDevice.height);
+          inputDevice.height,
+          config.hough.values[0].value);
 
     makeJpeg(inputBuffer,
              outputJpegBuffer,

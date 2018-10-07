@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#define MENU_ITEMS 4
+#define MENU_ITEMS 5
 
 
 struct ConfigEntryValue {
@@ -26,7 +26,7 @@ struct Config {
   ConfigEntry blurGaussian =
     {"blurGaussian",
       nullptr,
-      true,
+      false,
       {
         {"blurDepth", 3.0, 2.0, 3.0, 7.0},
         {"blurSigma", 1.0, 0.2, 0.2, 3.0}
@@ -52,6 +52,15 @@ struct Config {
       nullptr,
       true,
       { }
+    };
+  ConfigEntry hough =
+    {"hough",
+      nullptr,
+      true,
+      { 
+        {"threshold", 70, 10, 10, 250},
+        {"dilate count", 2, 1, 0, 20}
+      }
     };
 };
 

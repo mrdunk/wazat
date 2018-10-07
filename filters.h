@@ -46,9 +46,19 @@ void filterHough(std::vector<uint8_t>& inputBuffer,
                  const unsigned int width,
                  const unsigned int height);
 
+void dilateHough(struct buffer<uint16_t>& houghBuffer,
+                  const unsigned int width,
+                  const unsigned int height);
+
+size_t erodeHough(struct buffer<uint16_t>& houghBuffer,
+               const unsigned int width,
+               const unsigned int height,
+               const double threshold);
+
 void mergeHough(struct buffer<uint8_t>& finalBuffer,
                 struct buffer<uint16_t>& outputBuffer,
                 const unsigned int width,
-                const unsigned int height);
+                const unsigned int height,
+                const double threshold);
 
 #endif  // WAZAT_FILTERS_H

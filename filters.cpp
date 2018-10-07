@@ -268,13 +268,11 @@ void filterHough(std::vector<uint8_t>& inputBuffer,
                  struct buffer<uint16_t>& outputBuffer,
                  const unsigned int width,
                  const unsigned int height) {
-  const int16_t maxLineLen = sqrt(width * width + height * height);
+  static const int16_t maxLineLen = sqrt(width * width + height * height);
 
-  static struct buffer<uint16_t> tmpBuffer = {0};
-  tmpBuffer.resize(2 * maxLineLen * 360);
-  tmpBuffer.clear();
-  
   outputBuffer.resize(2 * maxLineLen * 360);
+  outputBuffer.resize(2 * maxLineLen * 360);
+  outputBuffer.clear();
 
   for(unsigned int x = 10; x < width -10; x++) {
     for(unsigned int y = 10; y < height -10; y++) {
@@ -287,7 +285,7 @@ void filterHough(std::vector<uint8_t>& inputBuffer,
             std::cout << r << std::endl;
             assert(0);
           }
-          uint16_t* value = &(tmpBuffer.start[rOffset * 360 + aOffset]);
+          uint16_t* value = &(outputBuffer.start[rOffset * 360 + aOffset]);
           if(*value < 0xffff -1) {
             (*value)++;
           }
@@ -296,30 +294,163 @@ void filterHough(std::vector<uint8_t>& inputBuffer,
     }
   }
 
-
-  for(int rOffset = 0; rOffset < 2 * maxLineLen; rOffset++) {
+  /*for(int rOffset = 0; rOffset < 2 * maxLineLen; rOffset++) {
     uint16_t* lastValue = nullptr;
     for(int16_t aOffset = 1; aOffset < 360; aOffset++) {
-
-      uint16_t* value = &(tmpBuffer.start[rOffset * 360 + aOffset]);
-      if(lastValue && *lastValue > 70 && *lastValue > *value) {
+      uint16_t* value = &(tmpBuffer2.start[rOffset * 360 + aOffset]);
+      if(lastValue && *lastValue > 170 && *lastValue > *value) {
         outputBuffer.start[rOffset * 360 + aOffset -1] = 1;
       } else {
         outputBuffer.start[rOffset * 360 + aOffset -1] = 0;
       }
       lastValue = value;
     }
+  }*/
+}
+
+void dilateHough(struct buffer<uint16_t>& houghBuffer,
+                  const unsigned int width,
+                  const unsigned int height) {
+  static const int16_t maxLineLen = sqrt(width * width + height * height);
+
+  static struct buffer<uint16_t> tmpBuffer = {0};
+  tmpBuffer.resize(2 * maxLineLen * 360);
+  tmpBuffer.clear();
+
+  for(size_t aOffset = 1; aOffset < 360 -1; aOffset++) {
+    for(int rOffset = 1; rOffset < 2 * maxLineLen -1; rOffset++) {
+      uint16_t* value = &(tmpBuffer.start[rOffset * 360 + aOffset]);
+      *value = houghBuffer.start[rOffset * 360 + aOffset];
+
+      if(houghBuffer.start[(rOffset -1) * 360 + aOffset -1] >= *value) {
+        *value = houghBuffer.start[(rOffset -1) * 360 + aOffset -1];
+      }
+      if(houghBuffer.start[(rOffset +0) * 360 + aOffset -1] >= *value) {
+        *value = houghBuffer.start[(rOffset +0) * 360 + aOffset -1];
+      }
+      if(houghBuffer.start[(rOffset +1) * 360 + aOffset -1] >= *value) {
+        *value = houghBuffer.start[(rOffset +1) * 360 + aOffset -1];
+      }
+      if(houghBuffer.start[(rOffset -1) * 360 + aOffset +0] >= *value) {
+        *value = houghBuffer.start[(rOffset -1) * 360 + aOffset +0];
+      }
+      if(houghBuffer.start[(rOffset +1) * 360 + aOffset +0] >= *value) {
+        *value = houghBuffer.start[(rOffset +1) * 360 + aOffset +0];
+      }
+      if(houghBuffer.start[(rOffset -1) * 360 + aOffset +1] >= *value) {
+        *value = houghBuffer.start[(rOffset -1) * 360 + aOffset +1];
+      }
+      if(houghBuffer.start[(rOffset +0) * 360 + aOffset +1] >= *value) {
+        *value = houghBuffer.start[(rOffset +0) * 360 + aOffset +1];
+      }
+      if(houghBuffer.start[(rOffset +1) * 360 + aOffset +1] >= *value) {
+        *value = houghBuffer.start[(rOffset +1) * 360 + aOffset +1];
+      }
+    }
   }
+  memcpy(houghBuffer.start, tmpBuffer.start, houghBuffer.length * sizeof(uint16_t));
+}
+
+size_t erodeHough(struct buffer<uint16_t>& houghBuffer,
+               const unsigned int width,
+               const unsigned int height,
+               const double threshold) {
+  static const int16_t maxLineLen = sqrt(width * width + height * height);
+
+  static struct buffer<uint16_t> tmpBuffer = {0};
+  tmpBuffer.resize(2 * maxLineLen * 360);
+  tmpBuffer.clear();
+
+  size_t count = 0;
+
+  for(size_t aOffset = 1; aOffset < 360 -1; aOffset++) {
+    for(int rOffset = 1; rOffset < 2 * maxLineLen -1; rOffset++) {
+      uint16_t center = houghBuffer.start[rOffset * 360 + aOffset];
+      uint16_t tl = houghBuffer.start[(rOffset -1) * 360 + aOffset -1];
+      uint16_t tc = houghBuffer.start[(rOffset +0) * 360 + aOffset -1];
+      uint16_t tr = houghBuffer.start[(rOffset +1) * 360 + aOffset -1];
+      uint16_t lc = houghBuffer.start[(rOffset -1) * 360 + aOffset +0];
+      uint16_t rc = houghBuffer.start[(rOffset +1) * 360 + aOffset +0];
+      uint16_t bl = houghBuffer.start[(rOffset -1) * 360 + aOffset +1];
+      uint16_t bc = houghBuffer.start[(rOffset +0) * 360 + aOffset +1];
+      uint16_t br = houghBuffer.start[(rOffset +1) * 360 + aOffset +1];
+      bool tlb = tl >= center;
+      bool tcb = tc >= center;
+      bool trb = tr >= center;
+      bool lcb = lc >= center;
+      bool rcb = rc >= center;
+      bool blb = bl >= center;
+      bool bcb = bc >= center;
+      bool brb = br >= center;
+
+      if(center < threshold ||
+          tl > center || tc > center || tr > center || lc > center ||
+          rc > center || bl > center || bc > center || br > center) {
+        tmpBuffer.start[rOffset * 360 + aOffset] = 0;
+      } else {
+        uint8_t transitionCount = 0;
+        uint8_t setCount = tlb + tcb + trb + lcb + rcb + blb + bcb + brb;
+        if(tlb != tcb) { transitionCount++; }
+        if(tcb != trb) { transitionCount++; }
+        if(trb != rcb) { transitionCount++; }
+        if(rcb != brb) { transitionCount++; }
+        if(brb != bcb) { transitionCount++; }
+        if(bcb != blb) { transitionCount++; }
+        if(blb != lcb) { transitionCount++; }
+        if(lcb != tlb) { transitionCount++; }
+        assert(transitionCount % 2 == 0);
+        if(transitionCount == 2){
+          if(setCount > 1) {
+            tmpBuffer.start[rOffset * 360 + aOffset] = 0;
+            count++;
+          } else if(rcb || blb || bcb || brb) {
+            // Lower end of line.
+            tmpBuffer.start[rOffset * 360 + aOffset] = 0;
+            count++;
+          } else {
+            // Upper end of line.
+            tmpBuffer.start[rOffset * 360 + aOffset] = center;
+          }
+        } else {
+          tmpBuffer.start[rOffset * 360 + aOffset] = center;
+        }
+      }
+    }
+  }
+  memcpy(houghBuffer.start, tmpBuffer.start, houghBuffer.length * sizeof(uint16_t));
+  return count;
 }
 
 void mergeHough(struct buffer<uint8_t>& finalBuffer,
                 struct buffer<uint16_t>& houghBuffer,
                 const unsigned int width,
-                const unsigned int height) {
+                const unsigned int height,
+                const double threshold) {
   const int16_t maxLineLen = sqrt(width * width + height * height);
+
+  /*for(size_t aOffset = 0; aOffset < 360; aOffset++) {
+    for(int rOffset = 0; rOffset < height; rOffset++) {
+      uint16_t value = houghBuffer.start[rOffset * 360 + aOffset];
+      if(value) {
+        uint8_t clippedValue = std::min((uint16_t)0xff, value);
+        finalBuffer.start[(rOffset * width + aOffset) *3 +0] =
+          (clippedValue == 0xff ? clippedValue : 0);
+        finalBuffer.start[(rOffset * width + aOffset) *3 +1] =
+          clippedValue;
+        finalBuffer.start[(rOffset * width + aOffset) *3 +2] =
+          (clippedValue == 0xff ? 0 : clippedValue);
+      } else {
+        finalBuffer.start[(rOffset * width + aOffset) *3 +0] = 0xff;
+        finalBuffer.start[(rOffset * width + aOffset) *3 +1] = 0xff;
+        finalBuffer.start[(rOffset * width + aOffset) *3 +2] = 0xff;
+      }
+    }
+  }
+  return;*/
+
   for(size_t aOffset = 0; aOffset < 360; aOffset++) {
     for(int rOffset = 0; rOffset < 2 * maxLineLen; rOffset++) {
-      if(houghBuffer.start[rOffset * 360 + aOffset] > 0) {
+      if(houghBuffer.start[rOffset * 360 + aOffset] > threshold) {
         int16_t a = aOffset - 180;
         int r = rOffset - maxLineLen;
         int xStart = cos(M_PI * a / 180) * r;
