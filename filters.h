@@ -25,12 +25,15 @@ void getFeatures(struct buffer<uint8_t>& inputBuffer,
                  std::vector<uint8_t>& featureBuffer,
                  const unsigned int width,
                  const unsigned int height,
-                 int threshold,
+                 int thresholdColour,
+                 int thresholdBrightness,
                  int border);
 
 void filterThin(std::vector<uint8_t>& featureBuffer, 
                 const unsigned int width,
-                const unsigned int height);
+                const unsigned int height,
+                const int trim,
+                int maxIterations);
 
 void merge(struct buffer<uint8_t>& finalBuffer,
            std::vector<uint8_t>& featureBuffer,

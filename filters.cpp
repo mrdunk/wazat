@@ -82,7 +82,8 @@ void getFeatures(struct buffer<uint8_t>& inputBuffer,
                  std::vector<uint8_t>& featureBuffer,
                  const unsigned int width,
                  const unsigned int height,
-                 int threshold,
+                 int thresholdColour,
+                 int thresholdBrightness,
                  int border) {
 
   featureBuffer.clear(); 
@@ -105,13 +106,20 @@ void getFeatures(struct buffer<uint8_t>& inputBuffer,
       int dyB = ((uint8_t*)inputBuffer.start)[3*(x + y * width) +2] -
                      ((uint8_t*)inputBuffer.start)[3*(x + (y -border) * width) +2];
 
-      if(abs(dxR) + abs(dxG) + abs(dxB) + abs(dyR) + abs(dyG) + abs(dyB) >
-          threshold * 2) {
-        featureBuffer[x + y * width]++;
-      } else if(abs(dxR) > threshold || abs(dxG) > threshold || abs(dxB) >
-          threshold || abs(dyR) > threshold ||
-          abs(dyG) > threshold || abs(dyB) > threshold) {
-        featureBuffer[x + y * width]++;
+      if(abs(dxR - dxG) + abs(dxG - dxB) + abs(dxB - dxR) +
+          abs(dyR - dyG) + abs(dyG - dyB) + abs(dyB - dyR) > thresholdColour) {
+        if(abs(dxR) + abs(dxG) + abs(dxB) + abs(dyR) + abs(dyG) + abs(dyB) >
+            thresholdBrightness) {
+          featureBuffer[x + y * width] = 1;
+          /*featureBuffer[x -1 + (y -1) * width] = 1;
+          featureBuffer[x +0 + (y -1) * width] = 1;
+          featureBuffer[x +1 + (y -1) * width] = 1;
+          featureBuffer[x -1 + y * width] = 1;
+          featureBuffer[x +1 + y * width] = 1;
+          featureBuffer[x -1 + (y +1) * width] = 1;
+          featureBuffer[x +0 + (y +1) * width] = 1;
+          featureBuffer[x +1 + (y +1) * width] = 1;*/
+        }
       }
     }
   }
@@ -119,14 +127,17 @@ void getFeatures(struct buffer<uint8_t>& inputBuffer,
 
 void filterThin(std::vector<uint8_t>& featureBuffer, 
                 const unsigned int width,
-                const unsigned int height) {
+                const unsigned int height,
+                const int trim,
+                int maxIterations) {
   // http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
   uint8_t tempBuffer[width * height] = {};
   int border = 1;
   int count = 1;
   int pass = 0;
-  while(count) {
+  while(count && maxIterations) {
     count = 0;
+    maxIterations--;
     pass++;
     for(unsigned int x = border; x < width - border; x++) {
       for(unsigned int y = border; y < height - border; y++) {
@@ -160,7 +171,7 @@ void filterThin(std::vector<uint8_t>& featureBuffer,
                 featureBuffer[(x - 1) + (y - 1) * width];
 
           if(pass %2){
-            if((n > 1) && (n < 7) && (s < 2) &&
+            if((n >= trim) && (n < 7) && (s < 2) &&
                 (featureBuffer[(x + 0) + (y - 1) * width] *
                  featureBuffer[(x + 1) + (y + 0) * width] *
                  featureBuffer[(x + 0) + (y + 1) * width] == 0) &&
@@ -172,7 +183,7 @@ void filterThin(std::vector<uint8_t>& featureBuffer,
               tempBuffer[x + y * width] = 1;
             }
           } else {
-            if((n > 1) && (n < 7) && (s < 2) &&
+            if((n >= trim) && (n < 7) && (s < 2) &&
                 (featureBuffer[(x + 0) + (y - 1) * width] *
                  featureBuffer[(x + 1) + (y + 0) * width] *
                  featureBuffer[(x - 1) + (y + 0) * width] == 0) &&
@@ -428,25 +439,9 @@ void mergeHough(struct buffer<uint8_t>& finalBuffer,
                 const double threshold) {
   const int16_t maxLineLen = sqrt(width * width + height * height);
 
-  /*for(size_t aOffset = 0; aOffset < 360; aOffset++) {
-    for(int rOffset = 0; rOffset < height; rOffset++) {
-      uint16_t value = houghBuffer.start[rOffset * 360 + aOffset];
-      if(value) {
-        uint8_t clippedValue = std::min((uint16_t)0xff, value);
-        finalBuffer.start[(rOffset * width + aOffset) *3 +0] =
-          (clippedValue == 0xff ? clippedValue : 0);
-        finalBuffer.start[(rOffset * width + aOffset) *3 +1] =
-          clippedValue;
-        finalBuffer.start[(rOffset * width + aOffset) *3 +2] =
-          (clippedValue == 0xff ? 0 : clippedValue);
-      } else {
-        finalBuffer.start[(rOffset * width + aOffset) *3 +0] = 0xff;
-        finalBuffer.start[(rOffset * width + aOffset) *3 +1] = 0xff;
-        finalBuffer.start[(rOffset * width + aOffset) *3 +2] = 0xff;
-      }
-    }
+  if(houghBuffer.length == 0) {
+    return;
   }
-  return;*/
 
   for(size_t aOffset = 0; aOffset < 360; aOffset++) {
     for(int rOffset = 0; rOffset < 2 * maxLineLen; rOffset++) {
@@ -467,6 +462,7 @@ void mergeHough(struct buffer<uint8_t>& finalBuffer,
       }
     }
   }
+  houghBuffer.clear();
 }
 
 

@@ -37,7 +37,8 @@ struct Config {
       nullptr,
       true,
       {
-        {"threshold", 50, 1, 5, 250},
+        {"thresholdColour", 30, 10, 10, 250},
+        {"thresholdBrightness", 80, 10, 10, 250},
         {"border", 5, 1, 1, 50}
       }
     };
@@ -45,20 +46,23 @@ struct Config {
     {"filterThin",
       nullptr,
       true,
-      { }
+      {
+        {"minSetNeighbours", 0, 1, 0, 6},
+        {"maxIterations", 10, 2, 2, 50}
+      }
     };
   ConfigEntry filterSmallFeatures =
     {"filterSmallFeatures",
       nullptr,
-      true,
+      false,
       { }
     };
   ConfigEntry hough =
     {"hough",
       nullptr,
-      true,
+      false,
       { 
-        {"threshold", 70, 10, 10, 250},
+        {"threshold", 70, 10, 10, 500},
         {"dilate count", 2, 1, 0, 20}
       }
     };

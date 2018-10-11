@@ -11,7 +11,7 @@
  * g++ -std=c++11 -g -Wall inputs.cpp outputs.cpp filters.cpp config.cpp wazat.cpp -lSDL -lSDL_image -ljpeg -lmenu -lcurses -lv4l2 -O3
  * */
 
-// #define CAMERA
+#define CAMERA
 
 int main()
 {
@@ -64,24 +64,30 @@ int main()
                 inputDevice.width,
                 inputDevice.height,
                 config.getFeatures.values[0].value,
-                config.getFeatures.values[1].value);
+                config.getFeatures.values[1].value,
+                config.getFeatures.values[2].value);
     if(config.filterThin.enabled){
-      filterThin(featureBuffer, inputDevice.width, inputDevice.height);
+      filterThin(featureBuffer,
+                 inputDevice.width,
+                 inputDevice.height,
+                 config.filterThin.values[0].value,
+                 config.filterThin.values[1].value);
     }
     if(config.filterSmallFeatures.enabled){
       filterSmallFeatures(featureBuffer, inputDevice.width, inputDevice.height);
     }
-    filterHough(featureBuffer, houghBuffer, inputDevice.width, inputDevice.height);
+    if(config.hough.enabled) {
+      filterHough(featureBuffer, houghBuffer, inputDevice.width, inputDevice.height);
 
-    for(size_t dilateCount = 0; dilateCount < config.hough.values[1].value; dilateCount++) {
-      dilateHough(houghBuffer, inputDevice.width, inputDevice.height);
+      for(size_t dilateCount = 0; dilateCount < config.hough.values[1].value; dilateCount++) {
+        dilateHough(houghBuffer, inputDevice.width, inputDevice.height);
+      }
+
+      while(erodeHough(houghBuffer,
+            inputDevice.width,
+            inputDevice.height,
+            config.hough.values[0].value));
     }
-    
-    while(erodeHough(houghBuffer,
-                     inputDevice.width,
-                     inputDevice.height,
-                     config.hough.values[0].value));
-
     memset(inputBuffer.start, 0, inputBuffer.length);
     merge(inputBuffer,
           featureBuffer,
